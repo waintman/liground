@@ -79,6 +79,30 @@
               @change="checkValidFEN"
             >
           </div>
+          <button
+            class="button"
+            @click="BNNB"
+          >
+            왼 귀마vs귀마
+        </button>
+        <button
+            class="button"
+            @click="NBNB"
+          >
+            오른 귀마vs귀마
+        </button>
+        <button
+            class="button"
+            @click="nbnbNBBN"
+          >
+            원앙vs귀마
+        </button>
+        <button
+            class="button"
+            @click="nbbnBNBN"
+          >
+            귀마vs원앙
+        </button>
           <div
             v-if="QuickTourIndex !== 5"
             id="selector-container"
@@ -226,6 +250,18 @@ export default {
     }, false)
   },
   methods: {
+    BNNB () {
+      this.$store.dispatch('fenField', 'rbna1abnr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RBNA1ABNR w - - 0 1')
+    },
+    NBNB () {
+      this.$store.dispatch('fenField', 'rnba1anbr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RNBA1ANBR w - - 0 1')
+    },
+    nbnbNBBN () {
+      this.$store.dispatch('fenField', 'rnba1anbr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RNBA1ABNR w - - 0 1')
+    },
+    nbbnBNBN () {
+      this.$store.dispatch('fenField', 'rnba1abnr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RBNA1ABNR w - - 0 1')
+    },
     setFenSize () {
       return this.fen.length + 3
     },
