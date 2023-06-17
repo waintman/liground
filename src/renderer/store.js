@@ -141,6 +141,8 @@ export const store = new Vuex.Store({
       Makruk: 'makruk',
       Shogi: 'shogi',
       Janggi: 'janggi',
+      Janggimodern: 'janggimodern',
+      Janggicasual: 'janggicasual',
       Xiangqi: 'xiangqi',
       Fischerandom: 'fischerandom'
 
@@ -210,7 +212,7 @@ export const store = new Vuex.Store({
       '+ Add Custom', 'xiangqi'
     ],
     janggiVariants: [
-      '+ Add Custom', 'janggi'
+      '+ Add Custom', 'janggi', 'janggimodern', 'janggicasual'
     ],
     shogiVariants: [
       '+ Add Custom', 'shogi'
@@ -1429,7 +1431,7 @@ export const store = new Vuex.Store({
         return 0
       } else {
         const var2Dim = {
-          shogi: 1, xiangqi: 3, janggi: 3, makruk: 0
+          shogi: 1, xiangqi: 3, janggi: 3, janggimodern: 3, janggicasual: 3, makruk: 0
         }
         return var2Dim[state.variant]
       }
