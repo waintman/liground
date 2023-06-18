@@ -79,6 +79,20 @@
             :move="mainFirstMove"
           />
         </div>
+        <div
+          v-if="movesExist"
+          class="item"
+          @click="openSavePgnModal"
+        >
+          Save PGN
+        </div>
+        <div>
+          <SavePgnModal 
+            v-if="SavePgnModal.visible"
+            :title="SavePgnModal.title"
+            @close="SavePgnModal.visible = false"
+          />
+        </div>
       </div>
       <div
         v-else
@@ -92,7 +106,13 @@
             :move="mainFirstMove"
           />
         </div>
+        <div 
+        class="item"
+      >
+        Save PGN
       </div>
+      </div>
+      
       <JumpButtons
         v-if="QuickTourIndex !== 14"
         @flip-board="$emit('flip-board', 0)"
@@ -145,6 +165,7 @@ import MoveHistoryNode from './MoveHistoryNode'
 import RoundedSwitch from './RoundedSwitch'
 import EngineSelect from './EngineSelect'
 import ffish from 'ffish'
+import SavePgnModal from './SavePgnModal'
 
 export default {
   name: 'AnalysisContainer',
@@ -156,10 +177,15 @@ export default {
     EngineConsole,
     MoveHistoryNode,
     RoundedSwitch,
-    EngineSelect
+    EngineSelect,
+    SavePgnModal
   },
   data () {
     return {
+      SavePgnModal: {
+        visible: false,
+        title: ''
+      },
       currentVariant: null,
       canceltwice: true,
       isEngineActive: false,
@@ -259,6 +285,12 @@ export default {
     this.$refs.engineselect.setEngineIndex(this.engineIndex)
   },
   methods: {
+    openSavePgnModal() {
+      this.SavePgnModal = {
+        visible: true,
+        title: 'Save PGN'
+      }
+    },
     async resetThisEngine () {
       await this.$refs.console.resetEngine(this.isEngineActive)
       if (this.isEngineActive) {
