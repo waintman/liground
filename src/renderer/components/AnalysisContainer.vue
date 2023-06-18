@@ -87,7 +87,7 @@
           Save PGN
         </div>
         <div>
-          <SavePgnModal 
+          <SavePgnModal
             v-if="SavePgnModal.visible"
             :title="SavePgnModal.title"
             @close="SavePgnModal.visible = false"
@@ -106,13 +106,12 @@
             :move="mainFirstMove"
           />
         </div>
-        <div 
+        <div
         class="item"
-      >
-        Save PGN
+        >
+          Save PGN
+        </div>
       </div>
-      </div>
-      
       <JumpButtons
         v-if="QuickTourIndex !== 14"
         @flip-board="$emit('flip-board', 0)"
@@ -285,7 +284,7 @@ export default {
     this.$refs.engineselect.setEngineIndex(this.engineIndex)
   },
   methods: {
-    openSavePgnModal() {
+    openSavePgnModal () {
       this.SavePgnModal = {
         visible: true,
         title: 'Save PGN'

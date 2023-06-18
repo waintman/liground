@@ -9,14 +9,6 @@
         {{ title }}
       </header>
       <div class="body">
-        <div class="bar">
-          <div
-            class="item"
-            @click="savePgn"
-          >
-            <em class="icon mdi mdi-checkerboard" /> Save PGN to file System
-          </div>
-        </div>
         <div class="Textbox">
           <textarea
             v-model="pgnString"
@@ -30,7 +22,7 @@
         <button
           type="button"
           class="btn green"
-          @click="openPGNFromString"
+          @click="savePgn"
         >
           confirm
         </button>
@@ -61,8 +53,8 @@ export default {
   },
   data () {
     const moves = this.$store.getters.moves
-    let movesString = ""
-    for(const move of moves){
+    let movesString = `[Variant "${this.$store.getters.variantOptions.revGet(this.$store.getters.variant)}"]\r\n[FEN "${this.$store.getters.startFen}"]\r\n\r\n`
+    for (const move of moves){
       const s = move.ply % 2 === 1 ? `${(move.ply + 1) / 2}. ${move.name}` : ` ${move.name}\r\n`
       movesString = movesString + s
     }
@@ -89,17 +81,26 @@ export default {
       this.$emit('close')
     },
     savePgn () {
-      this.$electron.remote.dialog.showOpenDialog({
-        title: 'Open PGN file',
-        properties: ['openFile'],
+      this.$electron.remote.dialog.showSaveDialog({
+        title: 'Save PGN file',
+        buttonLabel: 'Save',
+        properties: [],
         filters: [
           { name: 'PGN Files', extensions: ['pgn'] },
           { name: 'All Files', extensions: ['*'] }
         ]
-      }).then(result => {
-        if (!result.canceled) {
-          localStorage.PGNPath = JSON.stringify(result.filePaths[0])
-          this.openPGNFromPath(result.filePaths[0])
+      }).then(file => {
+        // Stating whether dialog operation was cancelled or not.
+        console.log(file.canceled);
+        if (!file.canceled) {
+            console.log(file.filePath.toString());
+              
+            // Creating and Writing to the sample.txt file
+            fs.writeFile(file.filePath.toString(), 
+                         this.pgnString, function (err) {
+                            if (err) throw err;
+                            console.log('Saved!');
+            });
         }
       }).catch(err => {
         console.log(err)
