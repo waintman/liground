@@ -54,11 +54,11 @@ export default {
   data () {
     const moves = this.$store.getters.moves
     let movesString = `[Variant "${this.$store.getters.variantOptions.revGet(this.$store.getters.variant)}"]\r\n[FEN "${this.$store.getters.startFen}"]\r\n\r\n`
-    for (const move of moves){
+    for (const move of moves) {
       const s = move.ply % 2 === 1 ? `${(move.ply + 1) / 2}. ${move.name}` : ` ${move.name}\r\n`
       movesString = movesString + s
     }
-        
+
     return {
       error: 'none',
       pgnString: movesString
@@ -91,16 +91,15 @@ export default {
         ]
       }).then(file => {
         // Stating whether dialog operation was cancelled or not.
-        console.log(file.canceled);
+        console.log(file.canceled)
         if (!file.canceled) {
-            console.log(file.filePath.toString());
-              
-            // Creating and Writing to the sample.txt file
-            fs.writeFile(file.filePath.toString(), 
-                         this.pgnString, function (err) {
-                            if (err) throw err;
-                            console.log('Saved!');
-            });
+          console.log(file.filePath.toString())
+          // Creating and Writing to the sample.txt file
+          fs.writeFile(file.filePath.toString(),
+            this.pgnString, function (err) {
+              if (err) throw err
+              console.log('Saved!')
+            })
         }
       }).catch(err => {
         console.log(err)
