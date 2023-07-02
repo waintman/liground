@@ -24,6 +24,25 @@
                   id="gameinfo-qt"
                 />
               </span>
+              <div class="selectRedPiecePosition"
+                v-if="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
+                >
+                <div>초 : {{ blue_score() }}</div>
+                <div class="leftPieces">
+                  <button :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 1 : 60)">
+                    <b>&lt; &nbsp; &gt; </b>
+                  </button>
+                </div>
+                <div></div>
+                <div class="rightPieces">
+                  <button :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 6 : 55)">
+                    <b>&lt; &nbsp; &gt; </b>
+                  </button>
+                </div>
+                <div>한: {{ red_score() }}</div>
+              </div>
               <div
                 class="scrollable"
                 @mousewheel.prevent.exact="scroll($event)"
@@ -49,6 +68,25 @@
                 v-else
                 class="evalbar-qt"
               />
+              <div class="selectBluePiecePosition"
+                v-if="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
+                >
+                <div></div>
+                <div class="leftPieces">
+                  <button :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 55 : 6)">
+                    <b>&lt; &nbsp; &gt; </b>
+                  </button>
+                </div>
+                <div></div>
+                <div class="rightPieces">
+                  <button :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 60 : 1)">
+                    <b>&lt; &nbsp; &gt; </b>
+                  </button>
+                </div>
+                <div></div>
+              </div>
             </div>
           </div>
           <div
@@ -79,30 +117,6 @@
               @change="checkValidFEN"
             >
           </div>
-          <button
-            class="button"
-            @click="BNNB"
-          >
-            왼 귀마vs귀마
-        </button>
-        <button
-            class="button"
-            @click="NBNB"
-          >
-            오른 귀마vs귀마
-        </button>
-        <button
-            class="button"
-            @click="nbnbNBBN"
-          >
-            원앙vs귀마
-        </button>
-        <button
-            class="button"
-            @click="nbbnBNBN"
-          >
-            귀마vs원앙
-        </button>
           <div
             v-if="QuickTourIndex !== 5"
             id="selector-container"
@@ -250,20 +264,72 @@ export default {
     }, false)
   },
   methods: {
-    BNNB () {
-      this.$store.dispatch('fenField', 'rbna1abnr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RBNA1ABNR w - - 0 1')
+    replacePieces (str, a) {
+      return str.substring(0, a) + str[a + 1] + str[a] + str.substring(a + 2)
     },
-    NBNB () {
-      this.$store.dispatch('fenField', 'rnba1anbr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RNBA1ANBR w - - 0 1')
-    },
-    nbnbNBBN () {
-      this.$store.dispatch('fenField', 'rnba1anbr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RNBA1ABNR w - - 0 1')
-    },
-    nbbnBNBN () {
-      this.$store.dispatch('fenField', 'rnba1abnr/4k4/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/4K4/RBNA1ABNR w - - 0 1')
+    changeRedPieces (a, b) {
+      let _fen = this.fen
+      _fen = this.replacePieces(_fen, a)
+      this.$store.dispatch('fenField', _fen)
     },
     setFenSize () {
       return this.fen.length + 3
+    },
+    blue_score () {
+      let _fen = this.fen
+      let score = 0
+      _fen = _fen.split(' ')[0]
+      _fen.split('').forEach(c=>{
+        switch(c){
+          case 'R': 
+            score = score + 13
+            break
+          case 'B':
+            score = score + 3
+            break
+          case 'N':
+            score = score + 5
+            break
+          case 'A':
+            score = score + 3
+            break
+          case 'P':
+            score = score + 2
+            break
+          case 'C':
+            score = score + 7
+            break
+        }
+      })
+      return score
+    },
+    red_score () {
+      let _fen = this.fen
+      let score = 0
+      _fen = _fen.split(' ')[0]
+      _fen.split('').forEach(c=>{
+        switch(c){
+          case 'r': 
+            score = score + 13
+            break
+          case 'b':
+            score = score + 3
+            break
+          case 'n':
+            score = score + 5
+            break
+          case 'a':
+            score = score + 3
+            break
+          case 'p':
+            score = score + 2
+            break
+          case 'c':
+            score = score + 7
+            break
+        }
+      })
+      return score + 1.5
     },
     scroll (event) { // TODO: also moves back and forth when being slightly next to the board and for example over the pockets
       if (event.deltaY < 0) {
@@ -449,6 +515,40 @@ export default {
   justify-content: center;
 }
 
+.selectRedPiecePosition{
+  grid-area: selectRedPiecePosition;
+  display:grid;
+  flex-direction:column;
+  grid-template-columns: 70px auto auto auto 90px;
+  grid-template-areas: '. leftPieces . rightPieces .';
+  height:20px;
+}
+
+.selectBluePiecePosition{
+  grid-area: selectBluePiecePosition;
+  display:grid;
+  flex-direction:column;
+  grid-template-columns: 70px auto auto auto 70px;
+  grid-template-areas: '. leftPieces . rightPieces .';
+  height:20px;
+}
+.leftPieces {
+  width: 100px;
+  display: flex;
+  grid-area: leftPieces;
+}
+.leftPieces > button {
+  width: 100%;
+}
+.rightPieces{
+  grid-area: rightPieces;
+  display: flex;
+  justify-content: flex-end;
+}
+.rightPieces > button {
+  width: 100px;
+
+}
 #gameinfo {
   grid-area: gameinfo;
   border: 1px solid var(--main-border-color);
@@ -547,9 +647,12 @@ input {
 .board {
   grid-area: board;
   display: grid;
+  grid-template-rows: auto auto 600px auto;
   grid-template-areas:
   "gameinfo ."
-  "scrollable evalbar";
+  "selectRedPiecePosition selectRedPiecePosition"
+  "scrollable evalbar"
+  "selectBluePiecePosition .";
 }
 #chessboard {
   display: inline-block;
