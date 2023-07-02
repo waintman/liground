@@ -25,7 +25,7 @@
                 />
               </span>
               <div class="selectRedPiecePosition"
-                v-if="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
+                v-show="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
                 >
                 <div>초 : {{ blue_score() }}</div>
                 <div class="leftPieces">
@@ -34,7 +34,9 @@
                     <b>&lt; &nbsp; &gt; </b>
                   </button>
                 </div>
-                <div></div>
+                <div>
+                  <button @click="passMove()">한수쉼</button>
+                </div>
                 <div class="rightPieces">
                   <button :disabled="currentMove"
                     @click="changeRedPieces(orientation === 'white' ? 6 : 55)">
@@ -69,7 +71,7 @@
                 class="evalbar-qt"
               />
               <div class="selectBluePiecePosition"
-                v-if="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
+                v-show="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
                 >
                 <div></div>
                 <div class="leftPieces">
@@ -264,6 +266,48 @@ export default {
     }, false)
   },
   methods: {
+    passMove () {
+      let _fen = this.fen
+      let uciMove = ''
+      if (this.$store.getters.turn) {
+        _fen = _fen.split('/')
+        const n = [7, 8, 9]
+        n.forEach(i => {
+          const ki = _fen[i].indexOf('K')
+          if (ki === -1) return
+          let pos = 0
+          _fen[i].substring(0, ki).split('').forEach(c => {
+            pos = pos + (parseInt(c) || 1)
+          })
+          var convertC = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+          uciMove = convertC[pos] + (10 - i)
+          uciMove = uciMove + uciMove
+          return false
+        })
+      } else {
+        _fen = _fen.split('/')
+        const n = [0, 1, 2]
+        n.forEach(i => {
+          const ki = _fen[i].indexOf('k')
+          if (ki === -1) return
+          let pos = 0
+          _fen[i].substring(0, ki).split('').forEach(c => {
+            pos = pos + (parseInt(c) || 1)
+          })
+          var convertC = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+          uciMove = convertC[pos] + (10 - i)
+          uciMove = uciMove + uciMove
+          return false
+        })
+      }
+      this.lastMoveSan = this.$store.getters.sanMove(uciMove)
+      const prevMov = this.currentMove
+      this.$store.dispatch('push', { move: uciMove, prev: prevMov })
+      const events = {}
+      events.fen = this.fen
+      events.history = [this.lastMoveSan]
+      this.$store.dispatch('lastFen', this.fen)
+    },
     replacePieces (str, a) {
       return str.substring(0, a) + str[a + 1] + str[a] + str.substring(a + 2)
     },
@@ -279,9 +323,9 @@ export default {
       let _fen = this.fen
       let score = 0
       _fen = _fen.split(' ')[0]
-      _fen.split('').forEach(c=>{
-        switch(c){
-          case 'R': 
+      _fen.split('').forEach(c => {
+        switch (c) {
+          case 'R':
             score = score + 13
             break
           case 'B':
@@ -307,9 +351,9 @@ export default {
       let _fen = this.fen
       let score = 0
       _fen = _fen.split(' ')[0]
-      _fen.split('').forEach(c=>{
-        switch(c){
-          case 'r': 
+      _fen.split('').forEach(c => {
+        switch (c) {
+          case 'r':
             score = score + 13
             break
           case 'b':
