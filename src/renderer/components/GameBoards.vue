@@ -102,6 +102,7 @@
               placeholder="fen position"
               :value="fen"
               :size="setFenSize()"
+              :readonly="true"
               @change="checkValidFEN"
             >
           </div>

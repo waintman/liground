@@ -42,7 +42,65 @@
 import fs from 'fs'
 import { mapGetters } from 'vuex'
 import ffish from 'ffish'
-
+function dfs (moves, mainMove, historyString) {
+  const items = []
+  for (const move of moves) {
+    const s = `${parseInt((move.ply + 1) / 2)}${move.ply % 2 ? '.' : '...'} ${move.name} `
+    if (move.name === mainMove.name) {
+      if (move.next.length) {
+        items.push([move.next, move.main])
+      }
+      if (historyString[0].charAt(historyString[0].length - 1) === '\n') {
+        historyString[0] += `${parseInt((move.ply + 1) / 2)}${move.ply % 2 ? '.' : '...'} `
+      } else if (move.ply % 2) {
+        historyString[0] += `${(move.ply + 1) / 2}. `
+      }
+      historyString[0] += `${move.name} `
+    } else {
+      historyString[0] += '\r\n('
+      historyString[0] += s
+      if (move.next.length) {
+        dfs(move.next, move.main, historyString)
+      }
+      historyString[0] += ')\r\n'
+    }
+  }
+  bfs(items, historyString)
+}
+function bfs (items, historyString) {
+  const moves = []
+  if (items.length === 0) {
+    return
+  }
+  while (items.length) {
+    moves.push(items.pop())
+  }
+  while (moves.length) {
+    const move = moves.pop()
+    for (const n of move[0]) {
+      const s = `${parseInt((n.ply + 1) / 2)}${n.ply % 2 ? '.' : '...'} ${n.name} `
+      if (n.name !== move[1].name) {
+        historyString[0] += '\r\n('
+        historyString[0] += s
+        if (n.next.length) {
+          dfs(n.next, n.main, historyString)
+        }
+        historyString[0] += ')\r\n'
+      } else {
+        if (historyString[0].charAt(historyString[0].length - 1) === '\n') {
+          historyString[0] += `${parseInt((n.ply + 1) / 2)}${n.ply % 2 ? '.' : '...'} `
+        } else if (n.ply % 2) {
+          historyString[0] += `${(n.ply + 1) / 2}. `
+        }
+        historyString[0] += `${n.name} `
+        if (n.next.length) {
+          items.push([n.next, n.main])
+        }
+      }
+    }
+  }
+  bfs(items, historyString)
+}
 export default {
   name: 'SavePgnModal',
   props: {
@@ -52,16 +110,18 @@ export default {
     }
   },
   data () {
-    const moves = this.$store.getters.moves
-    let movesString = `[Variant "${this.$store.getters.variantOptions.revGet(this.$store.getters.variant)}"]\r\n[FEN "${this.$store.getters.startFen}"]\r\n\r\n`
-    for (const move of moves) {
-      const s = move.ply % 2 === 1 ? `${(move.ply + 1) / 2}. ${move.name}` : ` ${move.name}\r\n`
-      movesString = movesString + s
-    }
+    const movesString = `[Variant "${this.$store.getters.variantOptions.revGet(this.$store.getters.variant)}"]\r\n[FEN "${this.$store.getters.startFen}"]\r\n\r\n`
+    const historyString = [movesString]
+    const mainMove = this.$store.getters.mainFirstMove
+    const firstMoves = this.$store.getters.firstMoves
+    const items = []
+    items.push([firstMoves, mainMove])
+    bfs(items, historyString)
 
+    // movesString += historyString[0]
     return {
       error: 'none',
-      pgnString: movesString
+      pgnString: historyString[0]
     }
   },
   computed: {
