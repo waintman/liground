@@ -79,12 +79,12 @@
             :move="mainFirstMove"
           />
         </div>
-        <div
+        <div id="clipboard-button"
           v-if="movesExist"
           class="item"
-          @click="openSavePgnModal"
+          @click="saveClipboard"
         >
-          Save PGN
+          Copy Clipboard
         </div>
         <div>
           <SavePgnModal
@@ -165,6 +165,66 @@ import RoundedSwitch from './RoundedSwitch'
 import EngineSelect from './EngineSelect'
 import ffish from 'ffish'
 import SavePgnModal from './SavePgnModal'
+
+function dfs (moves, mainMove, historyString) {
+  const items = []
+  for (const move of moves) {
+    const s = `${parseInt((move.ply + 1) / 2)}${move.ply % 2 ? '.' : '...'} ${move.name} `
+    if (move.name === mainMove.name) {
+      if (move.next.length) {
+        items.push([move.next, move.main])
+      }
+      if (historyString[0].charAt(historyString[0].length - 1) === '\n') {
+        historyString[0] += `${parseInt((move.ply + 1) / 2)}${move.ply % 2 ? '.' : '...'} `
+      } else if (move.ply % 2) {
+        historyString[0] += `${(move.ply + 1) / 2}. `
+      }
+      historyString[0] += `${move.name} `
+    } else {
+      historyString[0] += '\r\n('
+      historyString[0] += s
+      if (move.next.length) {
+        dfs(move.next, move.main, historyString)
+      }
+      historyString[0] += ')\r\n'
+    }
+  }
+  bfs(items, historyString)
+}
+function bfs (items, historyString) {
+  const moves = []
+  if (items.length === 0) {
+    return
+  }
+  while (items.length) {
+    moves.push(items.pop())
+  }
+  while (moves.length) {
+    const move = moves.pop()
+    for (const n of move[0]) {
+      const s = `${parseInt((n.ply + 1) / 2)}${n.ply % 2 ? '.' : '...'} ${n.name} `
+      if (n.name !== move[1].name) {
+        historyString[0] += '\r\n('
+        historyString[0] += s
+        if (n.next.length) {
+          dfs(n.next, n.main, historyString)
+        }
+        historyString[0] += ')\r\n'
+      } else {
+        if (historyString[0].charAt(historyString[0].length - 1) === '\n') {
+          historyString[0] += `${parseInt((n.ply + 1) / 2)}${n.ply % 2 ? '.' : '...'} `
+        } else if (n.ply % 2) {
+          historyString[0] += `${(n.ply + 1) / 2}. `
+        }
+        historyString[0] += `${n.name} `
+        if (n.next.length) {
+          items.push([n.next, n.main])
+        }
+      }
+    }
+  }
+  bfs(items, historyString)
+}
 
 export default {
   name: 'AnalysisContainer',
@@ -289,6 +349,17 @@ export default {
         visible: true,
         title: 'Save PGN'
       }
+    },
+    saveClipboard () {
+      const movesString = `[Variant "${this.$store.getters.variantOptions.revGet(this.$store.getters.variant)}"]\r\n[FEN "${this.$store.getters.startFen}"]\r\n\r\n`
+      const historyString = [movesString]
+      const mainMove = this.$store.getters.mainFirstMove
+      const firstMoves = this.$store.getters.firstMoves
+      const items = []
+      items.push([firstMoves, mainMove])
+      bfs(items, historyString)
+
+      this.$electron.remote.clipboard.writeText(historyString[0])
     },
     async resetThisEngine () {
       await this.$refs.console.resetEngine(this.isEngineActive)
@@ -443,6 +514,9 @@ input {
   100% {
     background-position: 100000px 0;
   }
+}
+#clipboard-button:hover {
+  background-color: #00af89;
 }
 #gameinfo {
   height: auto;
