@@ -351,7 +351,12 @@ export default {
       }
     },
     saveClipboard () {
-      const movesString = `[Variant "${this.$store.getters.variantOptions.revGet(this.$store.getters.variant)}"]\r\n[FEN "${this.$store.getters.startFen}"]\r\n\r\n`
+      const blackInit = (this.$store.getters.startFen[1] === 'b' ? 1 : 0) + (this.$store.getters.startFen[7] === 'b' ? 1 : 0)
+      const whiteInit = (this.$store.getters.startFen[55] === 'B' ? 1 : 0) + (this.$store.getters.startFen[61] === 'B' ? 1 : 0)
+      const whitePlayer = `[White "${this.$store.getters.orientation === 'white' ? '박영완' : ''}(${whiteInit === 0 ? '원앙마' : whiteInit === 1 ? '귀마' : '양귀마'})"]\r\n`
+      const blackPlayer = `[Black "${this.$store.getters.orientation === 'black' ? '박영완' : ''}(${blackInit === 0 ? '원앙마' : blackInit === 1 ? '귀마' : '양귀마'})"]\r\n`
+      const resultStr = `[Result "${this.$store.getters.cpForWhitePerc === 1 ? '1' : '0'}-${this.$store.getters.cpForWhitePerc === 0 ? '1' : '0'}"]\r\n`
+      const movesString = whitePlayer + blackPlayer + resultStr + `[Variant "${this.$store.getters.variantOptions.revGet(this.$store.getters.variant)}"]\r\n[FEN "${this.$store.getters.startFen}"]\r\n\r\n`
       const historyString = [movesString]
       const mainMove = this.$store.getters.mainFirstMove
       const firstMoves = this.$store.getters.firstMoves
