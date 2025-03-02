@@ -27,6 +27,7 @@
       >
         <div
           class="cg-board-wrap"
+          :class="[orientation === 'black' ? 'rotate180' : '']"
           @mousedown="closeCursorHand"
           @mouseup="openCursorHand"
         >
@@ -1014,6 +1015,12 @@ coords {
 }
 .cg-board-wrap {
   position: relative;
+}
+.rotate180 {
+  transform: rotate(180deg);
+}
+.orientation-black {
+  transform: rotate(-180deg);
 }
 .koth cg-container::before {
   width: 25%;
