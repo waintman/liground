@@ -4,6 +4,12 @@
       v-if="QuickTourIndex !== 10"
       class="containerEvalBar"
     >
+      <div @input="onSwitch">
+        <RoundedSwitch
+          ref="roundedswitch"
+          class="switch"
+        />
+      </div>
       <div
         class="eval"
         :class="{ smaller: cpForWhiteStr.includes('/') }"
@@ -15,17 +21,17 @@
         class="select"
         @sendSelected="changeConsole($event)"
       />
-      <div @input="onSwitch">
-        <RoundedSwitch
-          ref="roundedswitch"
-          class="switch"
-        />
-      </div>
     </div>
     <div
       v-else
       class="containerEvalBar-qt"
     >
+      <div @input="onSwitch">
+        <RoundedSwitch
+          ref="roundedswitch"
+          class="switch"
+        />
+      </div>
       <div
         class="eval"
         :class="{ smaller: cpForWhiteStr.includes('/') }"
@@ -37,12 +43,6 @@
         class="select"
         @sendSelected="changeConsole($event)"
       />
-      <div @input="onSwitch">
-        <RoundedSwitch
-          ref="roundedswitch"
-          class="switch"
-        />
-      </div>
     </div>
     <div class="analysis">
       <!-- <AnalysisEvalRow /> -->

@@ -27,11 +27,11 @@
         @click="resetBoard"
       >
     </div>
-    <Mode960 v-if="QuickTourIndex !== 8" />
+    <!-- <Mode960 v-if="QuickTourIndex !== 8" />
     <Mode960
       v-else
       id="Mode960-qt"
-    />
+    /> -->
     <div
       v-if="QuickTourIndex !== 9"
       id="PvESwitch"
@@ -51,14 +51,13 @@
 
 <script>
 import Multiselect from 'vue-multiselect'
-import Mode960 from './Mode960'
 import PvESwitch from './PvESwitch.vue'
 import { mapGetters, mapState } from 'vuex'
 
 export default {
   name: 'AnalysisHead',
   components: {
-    Multiselect, Mode960, PvESwitch
+    Multiselect, PvESwitch
   },
   data () {
     return {

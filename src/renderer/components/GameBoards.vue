@@ -120,13 +120,21 @@
               @change="checkValidFEN"
             >
           </div>
+          <div id="reset-button" class="resetButton">
+            <input
+              type="button"
+              value="Reset"
+              class="reset"
+              @click="resetBoard"
+            >
+          </div>
           <div
             v-if="QuickTourIndex !== 5"
             id="selector-container"
           >
             <PieceStyleSelector id="piece-style" />
             <BoardStyleSelector id="board-style" />
-            <EvalPlotButton id="evalbutton-style" />
+            <!-- <EvalPlotButton id="evalbutton-style" /> -->
           </div>
           <div
             v-else
@@ -134,17 +142,17 @@
           >
             <PieceStyleSelector id="piece-style" />
             <BoardStyleSelector id="board-style" />
-            <EvalPlotButton id="evalbutton-style" />
+            <!-- <EvalPlotButton id="evalbutton-style" /> -->
           </div>
         </div>
-        <EvalPlot
+        <!-- <EvalPlot
           v-if="QuickTourIndex !== 6"
           id="evalplot"
         />
         <EvalPlot
           v-else
           id="evalplot-qt"
-        />
+        /> -->
         <div id="right-column">
           <AnalysisView
             id="analysisview"
@@ -172,13 +180,11 @@
 import AnalysisView from './AnalysisView'
 import EvalBar from './EvalBar'
 import ChessGround from './ChessGround'
-import EvalPlot from './EvalPlot'
 import PieceStyleSelector from './PieceStyleSelector'
 import BoardStyleSelector from './BoardStyleSelector'
 import Vue from 'vue'
 import PgnBrowser from './PgnBrowser.vue'
 import SettingsTab from './SettingsTab'
-import EvalPlotButton from './EvalPlotButton'
 import GameInfo from './GameInfo.vue'
 import { mapGetters } from 'vuex'
 
@@ -190,11 +196,9 @@ export default {
     ChessGround,
     PieceStyleSelector,
     BoardStyleSelector,
-    EvalPlot,
     GameInfo,
     PgnBrowser,
-    SettingsTab,
-    EvalPlotButton
+    SettingsTab
   },
   data () {
     return {
@@ -527,6 +531,13 @@ export default {
       document.dispatchEvent(new Event('resetPlot'))
       this.$store.dispatch('fenField', event.target.value)
       this.resetAnalysis = !this.resetAnalysis
+    },
+    resetBoard () {
+      if (confirm('Do you really want to reset the board?')) {
+        document.dispatchEvent(new Event('resetPlot'))
+        this.$store.dispatch('resetBoard', { is960: false }) // used to exit 960 Mode
+        this.$emit('resetMultiEngine')
+      }
     }
   }
 }
@@ -542,7 +553,7 @@ export default {
     "evalplot analysisview";
 }
 .chessboard-grid {
-  min-width: 1050px;
+  min-width: 920px;
   grid-area: chessboard;
   display: grid;
   grid-template-columns: 20% auto;
@@ -550,7 +561,8 @@ export default {
   grid-template-areas:
     "pgnbrowser board-grid"
     "selector board-grid "
-    ". fenfield";
+    ". fenfield"
+    ". resetfield"
 }
 
 .board-grid {
@@ -594,6 +606,23 @@ export default {
   width: 100px;
 
 }
+.reset {
+  background-color:var(--button-color);
+  color: white;
+  outline: none;
+  border-radius: 5px;
+  box-shadow: 1px 1px 1px 1px black;
+  padding-bottom: 5px;
+  padding-top: 5px;
+}
+.resetButton {
+  display: grid;
+  padding-left: 4px;
+}
+.reset:hover {
+  background-color: var(--hover-color);
+  cursor:pointer;
+}
 #gameinfo {
   grid-area: gameinfo;
   border: 1px solid var(--main-border-color);
@@ -633,6 +662,9 @@ input {
 #fen-field-qt {
   grid-area: fenfield;
   border: 5px solid var(--quicktour-highlight);
+}
+#reset-button {
+  grid-area: resetfield;
 }
 #lname {
   background-color: var(--second-bg-color);
