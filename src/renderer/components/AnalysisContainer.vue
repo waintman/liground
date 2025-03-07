@@ -79,8 +79,9 @@
             :move="mainFirstMove"
           />
         </div>
-        <div id="clipboard-button"
+        <div
           v-if="movesExist"
+          id="clipboard-button"
           class="item"
           @click="saveClipboard"
         >
@@ -107,7 +108,7 @@
           />
         </div>
         <div
-        class="item"
+          class="item"
         >
           Save PGN
         </div>

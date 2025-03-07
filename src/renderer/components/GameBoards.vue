@@ -24,22 +24,29 @@
                   id="gameinfo-qt"
                 />
               </span>
-              <div class="selectRedPiecePosition"
+              <div
                 v-show="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
-                >
+                class="selectRedPiecePosition"
+              >
                 <div>초 : {{ blue_score() }}</div>
                 <div class="leftPieces">
-                  <button :disabled="currentMove"
-                    @click="changeRedPieces(orientation === 'white' ? 1 : 60)">
+                  <button
+                    :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 1 : 60)"
+                  >
                     <b>&lt; &nbsp; &gt; </b>
                   </button>
                 </div>
                 <div>
-                  <button @click="passMove()">한수쉼</button>
+                  <button @click="passMove()">
+                    한수쉼
+                  </button>
                 </div>
                 <div class="rightPieces">
-                  <button :disabled="currentMove"
-                    @click="changeRedPieces(orientation === 'white' ? 6 : 55)">
+                  <button
+                    :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 6 : 55)"
+                  >
                     <b>&lt; &nbsp; &gt; </b>
                   </button>
                 </div>
@@ -70,24 +77,26 @@
                 v-else
                 class="evalbar-qt"
               />
-              <div class="selectBluePiecePosition"
+              <div
                 v-show="(variant==='janggi' || variant==='janggimodern' || variant ==='janggicasual')"
-                >
-                <div></div>
+                class="selectBluePiecePosition"
+              >
                 <div class="leftPieces">
-                  <button :disabled="currentMove"
-                    @click="changeRedPieces(orientation === 'white' ? 55 : 6)">
+                  <button
+                    :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 55 : 6)"
+                  >
                     <b>&lt; &nbsp; &gt; </b>
                   </button>
                 </div>
-                <div></div>
                 <div class="rightPieces">
-                  <button :disabled="currentMove"
-                    @click="changeRedPieces(orientation === 'white' ? 60 : 1)">
+                  <button
+                    :disabled="currentMove"
+                    @click="changeRedPieces(orientation === 'white' ? 60 : 1)"
+                  >
                     <b>&lt; &nbsp; &gt; </b>
                   </button>
                 </div>
-                <div></div>
               </div>
             </div>
           </div>
@@ -120,7 +129,10 @@
               @change="checkValidFEN"
             >
           </div>
-          <div id="reset-button" class="resetButton">
+          <div
+            id="reset-button"
+            class="resetButton"
+          >
             <input
               type="button"
               value="Reset"
@@ -284,7 +296,7 @@ export default {
           _fen[i].substring(0, ki).split('').forEach(c => {
             pos = pos + (parseInt(c) || 1)
           })
-          var convertC = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+          const convertC = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
           uciMove = convertC[pos] + (10 - i)
           uciMove = uciMove + uciMove
           return false
@@ -299,7 +311,7 @@ export default {
           _fen[i].substring(0, ki).split('').forEach(c => {
             pos = pos + (parseInt(c) || 1)
           })
-          var convertC = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
+          const convertC = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
           uciMove = convertC[pos] + (10 - i)
           uciMove = uciMove + uciMove
           return false
