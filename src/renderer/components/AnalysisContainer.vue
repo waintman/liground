@@ -153,7 +153,6 @@ import MoveHistoryNode from './MoveHistoryNode'
 import RoundedSwitch from './RoundedSwitch'
 import EngineSelect from './EngineSelect'
 import ffish from 'ffish'
-import SavePgnModal from './SavePgnModal'
 
 function dfs (moves, mainMove, historyString) {
   const items = []
@@ -225,15 +224,10 @@ export default {
     EngineConsole,
     MoveHistoryNode,
     RoundedSwitch,
-    EngineSelect,
-    SavePgnModal
+    EngineSelect
   },
   data () {
     return {
-      SavePgnModal: {
-        visible: false,
-        title: ''
-      },
       currentVariant: null,
       canceltwice: true,
       isEngineActive: false,
@@ -333,12 +327,6 @@ export default {
     this.$refs.engineselect.setEngineIndex(this.engineIndex)
   },
   methods: {
-    openSavePgnModal () {
-      this.SavePgnModal = {
-        visible: true,
-        title: 'Save PGN'
-      }
-    },
     saveClipboard () {
       const blackInit = (this.$store.getters.startFen[1] === 'b' ? 1 : 0) + (this.$store.getters.startFen[7] === 'b' ? 1 : 0)
       const whiteInit = (this.$store.getters.startFen[55] === 'B' ? 1 : 0) + (this.$store.getters.startFen[61] === 'B' ? 1 : 0)
