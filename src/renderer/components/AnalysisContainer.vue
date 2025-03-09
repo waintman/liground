@@ -87,13 +87,6 @@
         >
           Copy Clipboard
         </div>
-        <div>
-          <SavePgnModal
-            v-if="SavePgnModal.visible"
-            :title="SavePgnModal.title"
-            @close="SavePgnModal.visible = false"
-          />
-        </div>
       </div>
       <div
         v-else
@@ -106,11 +99,6 @@
             v-if="movesExist"
             :move="mainFirstMove"
           />
-        </div>
-        <div
-          class="item"
-        >
-          Save PGN
         </div>
       </div>
       <JumpButtons

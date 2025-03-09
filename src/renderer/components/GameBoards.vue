@@ -558,23 +558,22 @@ export default {
 <style scoped>
 .main-grid {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: 850px auto;
   grid-template-rows: auto auto;
   grid-template-areas:
     "chessboard analysisview"
     "evalplot analysisview";
 }
 .chessboard-grid {
-  min-width: 920px;
+  min-width: 850px;
   grid-area: chessboard;
   display: grid;
-  grid-template-columns: 20% auto;
+  grid-template-columns: 20% 650px 5%;
   grid-template-rows: auto 150px auto;
   grid-template-areas:
-    "pgnbrowser board-grid"
-    "selector board-grid "
-    ". fenfield"
-    ". resetfield"
+    "pgnbrowser board-grid board-grid"
+    "selector board-grid board-grid"
+    ". fenfield resetfield"
 }
 
 .board-grid {
@@ -769,7 +768,7 @@ input {
   border: 3px solid var(--quicktour-highlight);
 }
 #analysisview {
-  margin-left: 15px;
+  /* margin-left: 15px; */
 }
 #evalplot {
   grid-area: evalplot;
