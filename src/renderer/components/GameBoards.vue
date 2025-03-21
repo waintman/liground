@@ -140,6 +140,11 @@
               @click="resetBoard"
             >
           </div>
+          <PVLines
+            id="pv-lines"
+            ref="pvlines"
+            class="panel"
+          />
           <div
             v-if="QuickTourIndex !== 5"
             id="selector-container"
@@ -194,6 +199,7 @@ import EvalBar from './EvalBar'
 import ChessGround from './ChessGround'
 import PieceStyleSelector from './PieceStyleSelector'
 import BoardStyleSelector from './BoardStyleSelector'
+import PVLines from './PVLines'
 import Vue from 'vue'
 import PgnBrowser from './PgnBrowser.vue'
 import SettingsTab from './SettingsTab'
@@ -208,6 +214,7 @@ export default {
     ChessGround,
     PieceStyleSelector,
     BoardStyleSelector,
+    PVLines,
     GameInfo,
     PgnBrowser,
     SettingsTab
@@ -249,7 +256,7 @@ export default {
       }
       return undefined
     },
-    ...mapGetters(['QuickTourIndex'])
+    ...mapGetters(['QuickTourIndex', 'engineIndex'])
   },
   mounted () { // EventListener für Keyboardinput, ruft direkt die jeweilige Methode auf
     window.addEventListener('keydown', (event) => {
@@ -569,11 +576,12 @@ export default {
   grid-area: chessboard;
   display: grid;
   grid-template-columns: 20% 650px 5%;
-  grid-template-rows: auto 150px auto;
+  grid-template-rows: auto 150px auto auto;
   grid-template-areas:
     "pgnbrowser board-grid board-grid"
     "selector board-grid board-grid"
     ". fenfield resetfield"
+    ". pvlinesfield pvlinesfield"
 }
 
 .board-grid {
@@ -650,6 +658,15 @@ export default {
   border-radius: 5px;
   background-color: var(--second-bg-color);
 }
+.panel {
+  border-radius: 3px 3px 3px 3px;
+  border: 1px solid var(--main-border-color);
+  font-family: sans-serif;
+  font-weight: 200;
+}
+.panel + .panel {
+  margin-top: 7px;
+}
 #analysisview {
   grid-area: analysisview;
   height: 100%;
@@ -676,6 +693,11 @@ input {
 }
 #reset-button {
   grid-area: resetfield;
+}
+#pv-lines {
+  grid-area: pvlinesfield;
+  justify-self: center;
+  width: 80%;
 }
 #lname {
   background-color: var(--second-bg-color);

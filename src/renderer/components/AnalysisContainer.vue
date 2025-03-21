@@ -59,7 +59,7 @@
         class="processing-bar"
         :class="{ animate: isEngineActive }"
       />
-      <PVLines
+      <!-- <PVLines
         v-if="QuickTourIndex !== 12"
         ref="pvlines"
         class="panel"
@@ -68,7 +68,7 @@
         v-else
         ref="pvlines"
         class="panel-qt"
-      />
+      /> -->
       <div
         v-if="QuickTourIndex !== 13"
         class="game-window panel noselect"
@@ -147,7 +147,7 @@ import { mapGetters } from 'vuex'
 // import AnalysisEvalRow from './AnalysisEvalRow'
 import JumpButtons from './JumpButtons'
 import EngineStats from './EngineStats'
-import PVLines from './PVLines'
+// import PVLines from './PVLines'
 import EngineConsole from './EngineConsole'
 import MoveHistoryNode from './MoveHistoryNode'
 import RoundedSwitch from './RoundedSwitch'
@@ -220,7 +220,7 @@ export default {
     // AnalysisEvalRow,
     JumpButtons,
     EngineStats,
-    PVLines,
+    // PVLines,
     EngineConsole,
     MoveHistoryNode,
     RoundedSwitch,
