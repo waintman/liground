@@ -270,6 +270,27 @@ export default {
       const shapes = []
       const pieceShapes = []
       for (const [i, pvline] of multipv.entries()) {
+        if (i === 0) {
+          const moves = pvline.pvUCI.split(' ')
+          const lineWidth = 2 + ((multipv.length - i) / multipv.length) * 8
+          for (const [j, move] of moves.entries()) {
+            if (j === 0) {
+              continue
+            }
+            let orig = move.substring(0, 2)
+            let dest = move.substring(2, 4)
+            if (this.dimensionNumber === 3) {
+              const extract = this.extractMoves(move)
+              orig = extract[0].replace('10', ':')
+              dest = extract[1].replace('10', ':')
+            }
+            const drawShape = { orig, dest, brush: 'green', modifiers: { lineWidth } }
+            shapes.unshift(drawShape)
+            if (j === 3) {
+              break
+            }
+          }
+        }
         if (pvline && 'ucimove' in pvline && pvline.ucimove.length > 0) {
           const lineWidth = 2 + ((multipv.length - i) / multipv.length) * 8
           const move = pvline.ucimove
