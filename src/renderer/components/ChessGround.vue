@@ -271,6 +271,9 @@ export default {
       const pieceShapes = []
       for (const [i, pvline] of multipv.entries()) {
         if (i === 0) {
+          if (typeof pvline.pvUCI !== 'string') {
+            continue
+          }
           const moves = pvline.pvUCI.split(' ')
           const lineWidth = 2 + ((multipv.length - i) / multipv.length) * 8
           for (const [j, move] of moves.entries()) {
