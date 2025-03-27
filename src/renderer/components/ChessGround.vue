@@ -269,31 +269,26 @@ export default {
       const multipv = this.multipv
       const shapes = []
       const pieceShapes = []
-      for (const [i, pvline] of multipv.entries()) {
-        if (i === 0) {
-          if (typeof pvline.pvUCI !== 'string') {
-            continue
+      if (this.hoveredpv >= 0) {
+        const moves = this.multipv[this.hoveredpv].pvUCI.split(' ')
+        const brushes = ['red', 'green']
+        let brushIdx = 0
+        for (const [j, move] of moves.entries()) {
+          let orig = move.substring(0, 2)
+          let dest = move.substring(2, 4)
+          if (this.dimensionNumber === 3) {
+            const extract = this.extractMoves(move)
+            orig = extract[0].replace('10', ':')
+            dest = extract[1].replace('10', ':')
           }
-          const moves = pvline.pvUCI.split(' ')
-          const lineWidth = 2 + ((multipv.length - i) / multipv.length) * 8
-          for (const [j, move] of moves.entries()) {
-            if (j === 0) {
-              continue
-            }
-            let orig = move.substring(0, 2)
-            let dest = move.substring(2, 4)
-            if (this.dimensionNumber === 3) {
-              const extract = this.extractMoves(move)
-              orig = extract[0].replace('10', ':')
-              dest = extract[1].replace('10', ':')
-            }
-            const drawShape = { orig, dest, brush: 'green', modifiers: { lineWidth } }
-            shapes.unshift(drawShape)
-            if (j === 3) {
-              break
-            }
+          const drawShape = { orig, dest, brush: brushes[brushIdx ^= 1], modifiers: { lineWidth: 2 + (12 - (j * 2)) } }
+          shapes.unshift(drawShape)
+          if (j === 6) {
+            break
           }
         }
+      }
+      for (const [i, pvline] of multipv.entries()) {
         if (pvline && 'ucimove' in pvline && pvline.ucimove.length > 0) {
           const lineWidth = 2 + ((multipv.length - i) / multipv.length) * 8
           const move = pvline.ucimove
@@ -338,6 +333,7 @@ export default {
       this.drawShapes()
     },
     hoveredpv () {
+      /*
       const index = this.shapes.length - this.hoveredpv - 1
       for (const [i, shape] of this.shapes.entries()) {
         shape.brush = i === index ? 'blue' : 'paleBlue'
@@ -345,7 +341,7 @@ export default {
           this.shapes[this.shapes.length - 1].brush = 'yellow'
         }
       }
-      this.drawShapes()
+      */
     },
     variant () {
       if (this.variant === 'shogi') {
