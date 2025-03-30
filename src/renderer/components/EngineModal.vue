@@ -80,7 +80,7 @@
 <script>
 import path from 'path'
 import { promises as fs } from 'fs'
-import { remote } from 'electron'
+import { ipcRenderer } from 'electron'
 
 export default {
   name: 'EngineModal',
@@ -139,7 +139,7 @@ export default {
       }
     },
     async selectPath () {
-      const { filePaths: [file] } = await remote.dialog.showOpenDialog({ properties: ['openFile'] })
+      const { filePaths: [file] } = await ipcRenderer.invoke('selectPath')
       if (file) {
         if (this.cwd.length === 0 || this.cwd === path.dirname(this.binary)) {
           this.cwd = path.dirname(file)
@@ -148,13 +148,7 @@ export default {
       }
     },
     async selectImage () {
-      const { filePaths: [file] } = await remote.dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [
-          { name: 'Images', extensions: ['bmp', 'gif', 'jpg', 'jpeg', 'png', 'svg', 'tif', 'tiff', 'webp'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      })
+      const { filePaths: [file] } = await ipcRenderer.invoke('selectImage')
       if (file) {
         const base64 = await fs.readFile(file, { encoding: 'base64' })
         this.logo = `data:image/${this.imageExtToMime(path.extname(file))};base64,${base64}`

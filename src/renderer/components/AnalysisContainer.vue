@@ -341,7 +341,7 @@ export default {
       items.push([firstMoves, mainMove])
       bfs(items, historyString)
 
-      this.$electron.remote.clipboard.writeText(historyString[0])
+      this.$electron.clipboard.writeText(historyString[0])
     },
     async resetThisEngine () {
       await this.$refs.console.resetEngine(this.isEngineActive)

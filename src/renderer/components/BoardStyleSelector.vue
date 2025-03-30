@@ -75,6 +75,7 @@ import Multiselect from 'vue-multiselect'
 import { mapGetters } from 'vuex'
 import fs from 'fs'
 import absolutePath from 'path'
+import { ipcRenderer } from 'electron'
 export default {
   name: 'BoardStyleSelector',
   components: {
@@ -499,16 +500,12 @@ export default {
         }, 1500)
       }
     },
-    addCustom (counter) {
+    async addCustom (counter) {
       if (counter > 5) {
         alert("You can't add more than 5 Custom Designs")
         return
       }
-      return this.$electron.remote.dialog.showOpenDialog({
-        title: 'Choose Custom Board Style',
-        properties: ['openFile'],
-        filters: [{ name: 'SVG Files', extensions: ['svg'] }]
-      })
+      return await ipcRenderer.invoke('selectSVG')
     },
     updateBoardStyle (payload) {
       if (payload === 'Add Custom') {

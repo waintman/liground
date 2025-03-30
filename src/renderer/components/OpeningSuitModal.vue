@@ -73,6 +73,7 @@
 <script>
 
 import fs from 'fs'
+import { ipcRenderer } from 'electron'
 import AddPgnModal from './AddPgnModal'
 
 export default {
@@ -114,19 +115,8 @@ export default {
       this.$emit('close')
     },
     selectPath () {
-      this.$electron.remote.dialog.showOpenDialog({
-        title: 'Open PGN file',
-        properties: ['openFile'],
-        filters: [
-          { name: 'Epd Files', extensions: ['epd'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      }).then(result => {
-        if (!result.canceled) {
-          this.openFromPath(result.filePaths[0])
-        }
-      }).catch(err => {
-        console.log(err)
+      ipcRenderer.invoke('openPGN').then((result) => {
+        this.openFromPath(result.filePaths[0])
       })
     },
     openFromPath (path) {

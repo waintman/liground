@@ -44,7 +44,7 @@ import { mapGetters } from 'vuex'
 import ffish from 'ffish'
 import AboutTabModal from './AboutTabModal'
 import QuicktourModal from './QuicktourModal'
-
+import { ipcRenderer } from 'electron'
 export default {
   name: 'MenuBar',
   components: { AboutTabModal, QuicktourModal },
@@ -72,20 +72,9 @@ export default {
       this.$store.commit('viewAnalysis', !this.viewAnalysis)
     },
     openPgn () { // TODO: seperate the openPgn Funktions from here and AddPgnModal and import instead
-      this.$electron.remote.dialog.showOpenDialog({
-        title: 'Open PGN file',
-        properties: ['openFile'],
-        filters: [
-          { name: 'PGN Files', extensions: ['pgn'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      }).then(result => {
-        if (!result.canceled) {
-          localStorage.PGNPath = JSON.stringify(result.filePaths[0])
-          this.openPGNFromPath(result.filePaths[0])
-        }
-      }).catch(err => {
-        console.log(err)
+      ipcRenderer.invoke('openPGN').then((result) => {
+        localStorage.PGNPath = JSON.stringify(result.filePaths[0])
+        this.openPGNFromPath(result.filePaths[0])
       })
     },
     openPGNFromPath (path) {

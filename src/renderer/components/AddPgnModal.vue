@@ -50,6 +50,7 @@
 import fs from 'fs'
 import { mapGetters } from 'vuex'
 import ffish from 'ffish'
+import { ipcRenderer } from 'electron'
 
 export default {
   name: 'AddPgnModal',
@@ -82,20 +83,9 @@ export default {
       this.$emit('close')
     },
     openPgn () {
-      this.$electron.remote.dialog.showOpenDialog({
-        title: 'Open PGN file',
-        properties: ['openFile'],
-        filters: [
-          { name: 'PGN Files', extensions: ['pgn'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      }).then(result => {
-        if (!result.canceled) {
-          localStorage.PGNPath = JSON.stringify(result.filePaths[0])
-          this.openPGNFromPath(result.filePaths[0])
-        }
-      }).catch(err => {
-        console.log(err)
+      ipcRenderer.invoke('openPGN').then((result) => {
+        localStorage.PGNPath = JSON.stringify(result.filePaths[0])
+        this.openPGNFromPath(result.filePaths[0])
       })
     },
     openPGNFromPath (path) {

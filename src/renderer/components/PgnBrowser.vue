@@ -94,9 +94,8 @@
 </template>
 
 <script>
-import { remote } from 'electron'
+import { ipcRenderer } from 'electron'
 import { mapGetters } from 'vuex'
-import { bus } from '../main'
 import AddPgnModal from './AddPgnModal'
 
 export default {
@@ -156,52 +155,17 @@ export default {
     }
   },
   created: function () {
-    bus.$on('toggleGroup', (newVal) => {
+    ipcRenderer.on('toggleGroup', (e, newVal) => {
       this.groupByRound = newVal
     })
 
-    bus.$on('toggleUnsupported', (newVal) => {
+    ipcRenderer.on('toggleUnsupported', (e, newVal) => {
       this.displayUnsupported = newVal
     })
 
-    bus.$on('openAllRounds', () => this.setVisibilityOfAllRounds(true))
+    ipcRenderer.on('openAllRounds', () => this.setVisibilityOfAllRounds(true))
 
-    bus.$on('collapseAllRounds', () => this.setVisibilityOfAllRounds(false))
-
-    const menuTemplate = [
-      {
-        label: 'Group by rounds',
-        type: 'checkbox',
-        checked: this.groupByRound,
-        click: function (item, browserWindow, event) {
-          bus.$emit('toggleGroup', item.checked)
-        }
-      },
-      {
-        label: 'Display unsupported',
-        type: 'checkbox',
-        checked: this.displayUnsupported,
-        click: function (item, browserWindow, event) {
-          bus.$emit('toggleUnsupported', item.checked)
-        }
-      },
-      {
-        label: 'Open all rounds',
-        type: 'normal',
-        click: function () {
-          bus.$emit('openAllRounds')
-        }
-      },
-      {
-        label: 'Collapse all rounds',
-        type: 'normal',
-        click: function () {
-          bus.$emit('collapseAllRounds')
-        }
-      }
-    ]
-
-    this.menu = remote.Menu.buildFromTemplate(menuTemplate)
+    ipcRenderer.on('collapseAllRounds', () => this.setVisibilityOfAllRounds(false))
   },
   methods: {
     isGameVisible (game) {
@@ -214,7 +178,7 @@ export default {
       }
     },
     openContextMenu () {
-      this.menu.popup(remote.getCurrentWindow())
+      ipcRenderer.send('show-context-menu')
     },
     setVisibilityOfAllRounds (value) {
       this.rounds.forEach(round => {
