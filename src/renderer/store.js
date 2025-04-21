@@ -1,4 +1,4 @@
-import Vue from 'vue'
+// import Vue from 'vue'
 import Vuex from 'vuex'
 import ffish from 'ffish'
 import { engine } from './engine'
@@ -6,8 +6,9 @@ import allEngines from './store/engines'
 
 import moveAudio from './assets/audio/Move.mp3'
 import captureAudio from './assets/audio/Capture.mp3'
+import { createStore } from 'vuex/types/index.js'
 
-Vue.use(Vuex)
+// Vue.use(Vuex)
 
 class TwoWayMap {
   constructor (map) {
@@ -103,7 +104,8 @@ function checkOption (options, name, value) {
 
 const filteredSettings = ['UCI_Variant', 'UCI_Chess960']
 
-export const store = new Vuex.Store({
+// export const store = new Vuex.Store({
+export const store = createStore({
   state: {
     engineIndex: 1,
     enginesActive: [false],

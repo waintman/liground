@@ -1,6 +1,7 @@
 <template>
   <div class="pv-lines">
     <div class="scroller">
+      <!--
       <VueContext
         ref="menu1"
         v-slot="{ data }"
@@ -29,6 +30,7 @@
           >Play entire line</a>
         </li>
       </VueContext>
+      -->
       <template
         v-for="(line, id) in lines"
       >
@@ -83,11 +85,11 @@
 
 <script>
 import { mapGetters } from 'vuex'
-import VueContext from 'vue-context/src/js/index'
+// import VueContext from 'vue-context/src/js/index'
 
 export default {
   components: {
-    VueContext
+    // VueContext
   },
   data () {
     return {

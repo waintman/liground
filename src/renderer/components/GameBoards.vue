@@ -134,7 +134,7 @@ import ChessGround from './ChessGround'
 import EvalPlot from './EvalPlot'
 import PieceStyleSelector from './PieceStyleSelector'
 import BoardStyleSelector from './BoardStyleSelector'
-import Vue from 'vue'
+// import Vue from 'vue'
 import PgnBrowser from './PgnBrowser.vue'
 import SettingsTab from './SettingsTab'
 import EvalPlotButton from './EvalPlotButton'
@@ -355,9 +355,9 @@ export default {
         // var stringPos = y * 9 + x
 
         const letters = { 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h' }
-        let pieceCode = Vue.methds.pieceTypeToShort(this.selectedPockedPiece.boardA)
-        pieceCode = { type: pieceCode, color: this.turnColor.charAt(0) }
-        this.$store.dispatch('insertPieceAtPosition', ['boardA', pieceCode, letters[x] + (8 - y)])
+        // let pieceCode = Vue.methds.pieceTypeToShort(this.selectedPockedPiece.boardA)
+        // pieceCode = { type: pieceCode, color: this.turnColor.charAt(0) }
+        // this.$store.dispatch('insertPieceAtPosition', ['boardA', pieceCode, letters[x] + (8 - y)])
       } else {
         this.deselectPocketPieces()
       }

@@ -26,6 +26,7 @@
     >
       {{ checkCheckmate }}
     </span>
+    <!--
     <VueContext
       ref="menu"
       @open="onOpen($event, { move: move })"
@@ -45,6 +46,7 @@
         >Delete Variation</a>
       </li>
     </VueContext>
+    -->
     <span v-if="move.fen === mainFirstMove.fen">
       <MoveHistoryNode
         v-for="variation in firstMovesFiltered"
@@ -88,12 +90,12 @@
 <script>
 
 import ffish from 'ffish'
-import VueContext from 'vue-context/src/js/index'
+// import VueContext from 'vue-context/src/js/index'
 
 export default {
   name: 'MoveHistoryNode',
   components: {
-    VueContext
+    // VueContext
   },
   props: {
     move: {

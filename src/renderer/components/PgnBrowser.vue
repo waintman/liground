@@ -96,7 +96,7 @@
 <script>
 import { remote } from 'electron'
 import { mapGetters } from 'vuex'
-import { bus } from '../main'
+// import { bus } from '../main'
 import AddPgnModal from './AddPgnModal'
 
 export default {
@@ -156,6 +156,7 @@ export default {
     }
   },
   created: function () {
+    /*
     bus.$on('toggleGroup', (newVal) => {
       this.groupByRound = newVal
     })
@@ -168,13 +169,14 @@ export default {
 
     bus.$on('collapseAllRounds', () => this.setVisibilityOfAllRounds(false))
 
+    */
     const menuTemplate = [
       {
         label: 'Group by rounds',
         type: 'checkbox',
         checked: this.groupByRound,
         click: function (item, browserWindow, event) {
-          bus.$emit('toggleGroup', item.checked)
+          // bus.$emit('toggleGroup', item.checked)
         }
       },
       {
@@ -182,21 +184,21 @@ export default {
         type: 'checkbox',
         checked: this.displayUnsupported,
         click: function (item, browserWindow, event) {
-          bus.$emit('toggleUnsupported', item.checked)
+          // bus.$emit('toggleUnsupported', item.checked)
         }
       },
       {
         label: 'Open all rounds',
         type: 'normal',
         click: function () {
-          bus.$emit('openAllRounds')
+          // bus.$emit('openAllRounds')
         }
       },
       {
         label: 'Collapse all rounds',
         type: 'normal',
         click: function () {
-          bus.$emit('collapseAllRounds')
+        //  bus.$emit('collapseAllRounds')
         }
       }
     ]

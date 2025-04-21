@@ -36,72 +36,74 @@
         />
       </div>
       <table class="table">
-        <tr
-          v-for="option in engineOptions"
-          :key="option.name"
-        >
-          <td> {{ option.name }} </td>
-          <template v-if="option.type === 'combo'">
-            <td>
-              <select
-                v-model="settings[option.name]"
-                size="1"
-                class="input"
-              >
-                <option
-                  v-for="selOption in option.var"
-                  :key="selOption"
-                  :value="selOption"
+        <tbody>
+          <tr
+            v-for="option in engineOptions"
+            :key="option.name"
+          >
+            <td> {{ option.name }} </td>
+            <template v-if="option.type === 'combo'">
+              <td>
+                <select
+                  v-model="settings[option.name]"
+                  size="1"
+                  class="input"
                 >
-                  {{ selOption }}
-                </option>
-              </select>
-            </td>
-          </template>
-          <template v-else-if="option.type === 'check'">
-            <td>
-              <input
-                v-model="settings[option.name]"
-                type="checkbox"
-                :name="option.name"
-                class="input"
-              >
-            </td>
-          </template>
-          <template v-else-if="option.type === 'spin'">
-            <td>
-              <input
-                v-model.number="settings[option.name]"
-                type="number"
-                :step="1"
-                :min="option.min"
-                :max="option.max"
-                class="input"
-              >
-            </td>
-          </template>
-          <template v-else-if="option.type === 'string'">
-            <td>
-              <input
-                v-model="settings[option.name]"
-                type="text"
-                :name="option.name"
-                class="input"
-              >
-            </td>
-          </template>
-          <template v-else-if="option.type === 'button'">
-            <td>
-              <button
-                type="button"
-                class="input"
-                @click="triggerButtonSetting(option.name)"
-              >
-                {{ option.name }}
-              </button>
-            </td>
-          </template>
-        </tr>
+                  <option
+                    v-for="selOption in option.var"
+                    :key="selOption"
+                    :value="selOption"
+                  >
+                    {{ selOption }}
+                  </option>
+                </select>
+              </td>
+            </template>
+            <template v-else-if="option.type === 'check'">
+              <td>
+                <input
+                  v-model="settings[option.name]"
+                  type="checkbox"
+                  :name="option.name"
+                  class="input"
+                >
+              </td>
+            </template>
+            <template v-else-if="option.type === 'spin'">
+              <td>
+                <input
+                  v-model.number="settings[option.name]"
+                  type="number"
+                  :step="1"
+                  :min="option.min"
+                  :max="option.max"
+                  class="input"
+                >
+              </td>
+            </template>
+            <template v-else-if="option.type === 'string'">
+              <td>
+                <input
+                  v-model="settings[option.name]"
+                  type="text"
+                  :name="option.name"
+                  class="input"
+                >
+              </td>
+            </template>
+            <template v-else-if="option.type === 'button'">
+              <td>
+                <button
+                  type="button"
+                  class="input"
+                  @click="triggerButtonSetting(option.name)"
+                >
+                  {{ option.name }}
+                </button>
+              </td>
+            </template>
+          </tr>
+        </tbody>
       </table>
       <EngineModal
         v-if="modal.visible"
@@ -122,18 +124,20 @@
           @input="showSettings"
         />
         <table class="table">
-          <tr>
-            <td>{{ settingsName }}</td>
-            <td>
-              <input
-                v-model.number="PvEInput"
-                type="number"
-                :step="1"
-                :min="1"
-                class="input"
-              >
-            </td>
-          </tr>
+          <tbody>
+            <tr>
+              <td>{{ settingsName }}</td>
+              <td>
+                <input
+                  v-model.number="PvEInput"
+                  type="number"
+                  :step="1"
+                  :min="1"
+                  class="input"
+                >
+              </td>
+            </tr>
+          </tbody>
         </table>
       </div>
       <a
