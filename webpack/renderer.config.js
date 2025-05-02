@@ -22,7 +22,7 @@ const { VueLoaderPlugin } = require('vue-loader')
 const whiteListedModules = ['vue', 'vuex', 'vue-multiselect', 'vue-router', 'ffish', 'module', 'vm']
 
 const rendererConfig = {
-  devtool: 'eval-cheap-module-source-map',
+  devtool: 'source-map',
   entry: {
     renderer: path.join(__dirname, '../src/renderer/main.js')
   },
