@@ -1,13 +1,11 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
+import { createStore } from 'vuex'
 import ffish from 'ffish'
 import { engine } from './engine'
 import allEngines from './store/engines'
 
 import moveAudio from './assets/audio/Move.mp3'
 import captureAudio from './assets/audio/Capture.mp3'
-
-Vue.use(Vuex)
+let globalBoard = null
 
 class TwoWayMap {
   constructor (map) {
@@ -103,121 +101,122 @@ function checkOption (options, name, value) {
 
 const filteredSettings = ['UCI_Variant', 'UCI_Chess960']
 
-export const store = new Vuex.Store({
-  state: {
-    engineIndex: 1,
-    enginesActive: [false],
-    initialized: false,
-    active: false,
-    PvE: false,
-    PvEParam: 'go movetime 1000',
-    PvEValue: 'time',
-    PvEInput: 1000,
-    resized: 0,
-    resized9x9height: 0,
-    resized9x9width: 0,
-    resized9x10height: 0,
-    resized9x10width: 0,
-    dimNumber: 0,
-    turn: true,
-    fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-    lastFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // to track the end of the current line
-    startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-    moves: [],
-    firstMoves: [],
-    mainFirstMove: null,
-    legalMoves: '',
-    destinations: {},
-    variant: 'chess',
-    variantOptions: new TwoWayMap({ // all the currently supported options are listed here, variantOptions.get returns the right side, variantOptions.revGet returns the left side of the dict
-      Standard: 'chess',
-      Crazyhouse: 'crazyhouse',
-      'King of the Hill': 'kingofthehill',
-      '️Three-Check': '3check',
-      Antichess: 'antichess',
-      Atomic: 'atomic',
-      Horde: 'horde',
-      'Racing Kings': 'racingkings',
-      Makruk: 'makruk',
-      Shogi: 'shogi',
-      Janggi: 'janggi',
-      Janggimodern: 'janggimodern',
-      Janggicasual: 'janggicasual',
-      Xiangqi: 'xiangqi',
-      Fischerandom: 'fischerandom'
-
-    }),
-    openedPGN: false,
-    QuickTourIndex: 0,
-    evalPlotDepth: 20,
-    orientation: 'white',
-    message: 'hello from Vuex',
-    allEngines,
-    activeEngine: null,
-    selectedEngines: {},
-    engineInfo: {
-      name: '',
-      author: '',
-      options: []
-    },
-    engineSettings: {},
-    listOfEngineStats: [],
-    engineStats: {
-      depth: 0,
-      seldepth: 0,
-      nodes: 0,
-      nps: 0,
-      hashfull: 0,
-      tbhits: 0,
-      time: 0
-    },
-    enginetime: 0,
-    multipv: [
-      {
-        cp: 0,
-        pv: '',
-        ucimove: ''
-      }
-    ],
-    numberOfEngines: [
-      {
-        number: 1
-      }
-    ],
-    engineCounter: 1,
-    hoveredpv: -1,
-    counter: 0,
-    pieceStyle: 'cburnett',
-    board: null,
-    gameInfo: {},
-    loadedGames: [],
-    rounds: null,
-    selectedGame: null,
-    boardStyle: 'blue',
-    curVar960Fen: '',
-    viewAnalysis: true,
-    analysisMode: true,
-    menuAtMove: null,
-    displayMenu: true,
-    darkMode: false,
-    muteButton: false,
-    fenply: 1,
-    internationalVariants: [
-      '+ Add Custom', 'chess', 'crazyhouse', 'horde', 'kingofthehill', '3check', 'racingkings', 'antichess', 'atomic'
-    ],
-    seaVariants: [
-      '+ Add Custom', 'makruk'
-    ],
-    xiangqiVariants: [
-      '+ Add Custom', 'xiangqi'
-    ],
-    janggiVariants: [
-      '+ Add Custom', 'janggi', 'janggimodern', 'janggicasual'
-    ],
-    shogiVariants: [
-      '+ Add Custom', 'shogi'
-    ],
-    clock: null
+export const store = createStore({
+  state () {
+    return {
+      engineIndex: 1,
+      enginesActive: [false],
+      initialized: false,
+      active: false,
+      PvE: false,
+      PvEParam: 'go movetime 1000',
+      PvEValue: 'time',
+      PvEInput: 1000,
+      resized: 0,
+      resized9x9height: 0,
+      resized9x9width: 0,
+      resized9x10height: 0,
+      resized9x10width: 0,
+      dimNumber: 0,
+      turn: true,
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      lastFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // to track the end of the current line
+      startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      moves: [],
+      firstMoves: [],
+      mainFirstMove: null,
+      legalMoves: '',
+      destinations: {},
+      variant: 'chess',
+      variantOptions: new TwoWayMap({ // all the currently supported options are listed here, variantOptions.get returns the right side, variantOptions.revGet returns the left side of the dict
+        Standard: 'chess',
+        Crazyhouse: 'crazyhouse',
+        'King of the Hill': 'kingofthehill',
+        '️Three-Check': '3check',
+        Antichess: 'antichess',
+        Atomic: 'atomic',
+        Horde: 'horde',
+        'Racing Kings': 'racingkings',
+        Makruk: 'makruk',
+        Shogi: 'shogi',
+        Janggi: 'janggi',
+        Janggimodern: 'janggimodern',
+        Janggicasual: 'janggicasual',
+        Xiangqi: 'xiangqi',
+        Fischerandom: 'fischerandom'
+      }),
+      openedPGN: false,
+      QuickTourIndex: 0,
+      evalPlotDepth: 20,
+      orientation: 'white',
+      message: 'hello from Vuex',
+      allEngines,
+      activeEngine: null,
+      selectedEngines: {},
+      engineInfo: {
+        name: '',
+        author: '',
+        options: []
+      },
+      engineSettings: {},
+      listOfEngineStats: [],
+      engineStats: {
+        depth: 0,
+        seldepth: 0,
+        nodes: 0,
+        nps: 0,
+        hashfull: 0,
+        tbhits: 0,
+        time: 0
+      },
+      enginetime: 0,
+      multipv: [
+        {
+          cp: 0,
+          pv: '',
+          ucimove: ''
+        }
+      ],
+      numberOfEngines: [
+        {
+          number: 1
+        }
+      ],
+      engineCounter: 1,
+      hoveredpv: -1,
+      counter: 0,
+      pieceStyle: 'cburnett',
+      // board: null,
+      gameInfo: {},
+      loadedGames: [],
+      rounds: null,
+      selectedGame: null,
+      boardStyle: 'blue',
+      curVar960Fen: '',
+      viewAnalysis: true,
+      analysisMode: true,
+      menuAtMove: null,
+      displayMenu: true,
+      darkMode: false,
+      muteButton: false,
+      fenply: 1,
+      internationalVariants: [
+        '+ Add Custom', 'chess', 'crazyhouse', 'horde', 'kingofthehill', '3check', 'racingkings', 'antichess', 'atomic'
+      ],
+      seaVariants: [
+        '+ Add Custom', 'makruk'
+      ],
+      xiangqiVariants: [
+        '+ Add Custom', 'xiangqi'
+      ],
+      janggiVariants: [
+        '+ Add Custom', 'janggi', 'janggimodern', 'janggicasual'
+      ],
+      shogiVariants: [
+        '+ Add Custom', 'shogi'
+      ],
+      clock: null
+    }
   },
   mutations: { // sync
     increaseEngineNumber (state) {
@@ -398,27 +397,27 @@ export const store = new Vuex.Store({
       const { fen, is960 } = payload || {}
       if (typeof fen === 'string') {
         if (is960) {
-          state.board = new ffish.Board(state.variant, fen, true)
+          globalBoard = new ffish.Board(state.variant, fen, true)
         } else {
-          state.board = new ffish.Board(state.variant, fen)
+          globalBoard = new ffish.Board(state.variant, fen)
         }
       } else {
         if (is960) {
           console.log(state.curVar960Fen)
-          state.board = new ffish.Board(state.variant, state.curVar960Fen, true)
+          globalBoard = new ffish.Board(state.variant, state.curVar960Fen, true)
         } else {
-          state.board = new ffish.Board(state.variant)
+          globalBoard = new ffish.Board(state.variant)
         }
       }
       state.moves = []
       state.mainFirstMove = null
       state.firstMoves = []
       state.gameInfo = {}
-      state.fen = state.board.fen()
-      state.turn = state.board.turn()
-      state.legalMoves = state.board.legalMoves()
-      state.lastFen = state.board.fen()
-      state.startFen = state.board.fen()
+      state.fen = globalBoard.fen()
+      state.turn = globalBoard.turn()
+      state.legalMoves = globalBoard.legalMoves()
+      state.lastFen = globalBoard.fen()
+      state.startFen = globalBoard.fen()
       state.selectedGame = null
       state.fenply = 1
       this.commit('resetEngineStats')
@@ -452,10 +451,10 @@ export const store = new Vuex.Store({
       }
       if (!alreadyInMoves) {
         state.moves = state.moves.concat(mov.map((curVal, idx, arr) => {
-          const sanMove = state.board.sanMove(curVal)
-          state.board.push(curVal)
+          const sanMove = globalBoard.sanMove(curVal)
+          globalBoard.push(curVal)
           this.commit('playAudio', sanMove)
-          return { ply: ply, name: sanMove, fen: state.board.fen(), uci: curVal, whitePocket: state.board.pocket(true), blackPocket: state.board.pocket(false), main: undefined, next: [], prev: prev }
+          return { ply: ply, name: sanMove, fen: globalBoard.fen(), uci: curVal, whitePocket: globalBoard.pocket(true), blackPocket: globalBoard.pocket(false), main: undefined, next: [], prev: prev }
         }))
         if (payload.prev) { // if the move is not a starting move
           prev.next.push(state.moves[state.moves.length - 1]) // the last entry in moves is the move object of the current move
@@ -469,9 +468,9 @@ export const store = new Vuex.Store({
           }
         }
       } else {
-        state.board.push(alreadyInMoves.uci)
+        globalBoard.push(alreadyInMoves.uci)
       }
-      state.lastFen = state.board.fen()
+      state.lastFen = globalBoard.fen()
     },
     playAudio (state, move) { // Sounds from lichess https://github.com/ornicar/lila
       if (state.openedPGN) {
@@ -597,14 +596,14 @@ export const store = new Vuex.Store({
       context.commit('initialized', true)
     },
     updateBoard (context) {
-      const { board } = context.state
+      const board = globalBoard
       board.setFen(context.state.fen)
       context.commit('turn', board.turn())
       context.commit('legalMoves', board.legalMoves())
     },
     push (context, payload) {
       context.commit('appendMoves', payload)
-      context.dispatch('fen', context.state.board.fen())
+      context.dispatch('fen', globalBoard.fen())
     },
     pushMainLine (context, payload) {
       let prev = payload.prev
@@ -619,7 +618,7 @@ export const store = new Vuex.Store({
           prev = prev.main
         }
       }
-      context.dispatch('fen', context.state.board.fen())
+      context.dispatch('fen', globalBoard.fen())
     },
     pushAltLine (context, payload) {
       let prev = payload.prev
@@ -634,7 +633,7 @@ export const store = new Vuex.Store({
         }
         prev = move
       }
-      context.dispatch('fen', context.state.board.fen())
+      context.dispatch('fen', globalBoard.fen())
     },
     mainFirstMove (context, payload) {
       if (context.state.mainFirstMove !== payload) {
@@ -968,7 +967,7 @@ export const store = new Vuex.Store({
       const options = {
         // variant & 960 are handled separately and always set
         UCI_Variant: context.getters.variant,
-        UCI_Chess960: context.state.board.is960(),
+        UCI_Chess960: globalBoard.is960(),
 
         // multi pv 5 is default
         MultiPV: 5
@@ -1030,7 +1029,7 @@ export const store = new Vuex.Store({
           multipv[0] = { mate: payload.mate }
         } else {
           const ucimove = payload.pv.split(/\s/)[0]
-          const { board } = context.state
+          const board = globalBoard
 
           // assert first move is valid
           if (board.legalMoves().includes(ucimove)) {
@@ -1182,8 +1181,8 @@ export const store = new Vuex.Store({
     curVar960Fen (state) {
       return state.curVar960Fen
     },
-    board (state) {
-      return state.board
+    board () {
+      return globalBoard
     },
     initialized (state) {
       return state.initialized
@@ -1338,8 +1337,8 @@ export const store = new Vuex.Store({
 
       if (typeof mate === 'number') {
         return `#${calcForSide(mate, state.turn)}`
-      } else if (state.board != null && state.board.isGameOver()) {
-        return state.board.result()
+      } else if (globalBoard != null && globalBoard.isGameOver()) {
+        return globalBoard.result()
       } else {
         return cpToString(getters.cpForWhite)
       }
@@ -1382,8 +1381,8 @@ export const store = new Vuex.Store({
     legalMoves (state) {
       return state.legalMoves
     },
-    pocket (state) {
-      return (turn) => state.board.pocket(turn)
+    pocket () {
+      return (turn) => globalBoard.pocket(turn)
     },
     gameInfo (state) {
       return state.gameInfo
@@ -1412,19 +1411,17 @@ export const store = new Vuex.Store({
     isShogi (state) {
       return state.shogiVariants.includes(state.variant)
     },
-
-    // TODO: integrate getters into store state?
-    moveStack (state) {
-      return state.board.moveStack()
+    moveStack () {
+      return globalBoard.moveStack()
     },
-    isGameOver (state) {
-      return state.board.isGameOver()
+    isGameOver () {
+      return globalBoard.isGameOver()
     },
-    sanMove (state) {
-      return (uciMove) => state.board.sanMove(uciMove)
+    sanMove () {
+      return (uciMove) => globalBoard.sanMove(uciMove)
     },
-    is960 (state) {
-      return state.board.is960()
+    is960 () {
+      return globalBoard.is960()
     },
     dimensionNumber (state) {
       if (state.internationalVariants.includes(state.variant)) {

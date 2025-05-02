@@ -2,11 +2,11 @@
   <div>
     <Multiselect
       class="multiselect"
-      :value="displayPieceStyle"
+      :modelValue="displayPieceStyle"
       :options="pieceStyles"
       :allow-empty="false"
       :show-labels="false"
-      @input="updatePieceStyle"
+      @update:modelValue="updatePieceStyle"
     >
       <template
         slot="option"

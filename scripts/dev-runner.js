@@ -61,20 +61,23 @@ function startRenderer () {
     })
 
     const server = new WebpackDevServer(
-      compiler,
       {
-        contentBase: path.join(__dirname, '../'),
-        quiet: true,
-        before (app, ctx) {
-          app.use(hotMiddleware)
-          ctx.middleware.waitUntilValid(() => {
+        port: 9080,
+        static: {
+          directory: path.join(__dirname, '../')
+        },
+        hot: true,
+        setupMiddlewares: (middlewares, devServer) => {
+          devServer.app.use(hotMiddleware)
+          compiler.hooks.done.tap('done', () => {
             resolve()
           })
+          return middlewares
         }
-      }
+      },
+      compiler
     )
-
-    server.listen(9080)
+    server.start()
   })
 }
 

@@ -119,21 +119,23 @@
           v-model="value"
           class="multiselect"
           :options="options"
-          @input="showSettings"
+          @update:modelValue="showSettings"
         />
         <table class="table">
-          <tr>
-            <td>{{ settingsName }}</td>
-            <td>
-              <input
-                v-model.number="PvEInput"
-                type="number"
-                :step="1"
-                :min="1"
-                class="input"
-              >
-            </td>
-          </tr>
+          <tbody>
+            <tr>
+              <td>{{ settingsName }}</td>
+              <td>
+                <input
+                  v-model.number="PvEInput"
+                  type="number"
+                  :step="1"
+                  :min="1"
+                  class="input"
+                >
+              </td>
+            </tr>
+        </tbody>
         </table>
       </div>
       <a

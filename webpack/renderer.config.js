@@ -19,7 +19,7 @@ const { VueLoaderPlugin } = require('vue-loader')
  * that provide pure *.vue files that need compiling
  * https://simulatedgreg.gitbooks.io/electron-vue/content/en/webpack-configurations.html#white-listing-externals
  */
-const whiteListedModules = ['vue', 'ffish', 'module', 'vm']
+const whiteListedModules = ['vue', 'vuex', 'vue-multiselect', 'vue-router', 'ffish', 'module', 'vm']
 
 const rendererConfig = {
   devtool: 'eval-cheap-module-source-map',
@@ -114,7 +114,7 @@ const rendererConfig = {
   resolve: {
     alias: {
       '@': path.join(__dirname, '../src/renderer'),
-      vue$: 'vue/dist/vue.esm.js'
+      vue$: 'vue/dist/vue.esm-bundler.js',
     },
     extensions: ['.js', '.vue', '.json', '.css', '.node']
   },
@@ -159,7 +159,9 @@ if (process.env.NODE_ENV === 'production') {
       formatter: require('eslint-friendly-formatter')
     }),
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': '"production"'
+      'process.env.NODE_ENV': '"production"',
+      __VUE_OPTIONS_API__: true,
+      __VUE_PROD_DEVTOOLS__: false
     }),
     new webpack.LoaderOptionsPlugin({
       minimize: true

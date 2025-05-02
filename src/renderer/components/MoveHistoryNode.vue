@@ -22,29 +22,10 @@
       class="move-name"
       :class="{ current : move.fen === fen }"
       @click="updateBoard(move)"
-      @contextmenu.prevent="(menuAtMove === move.name || displayMenu) ? $refs.menu.open($event, { name: move.name }) : dummy"
+      @contextmenu.prevent="openMenu($event, move)"
     >
       {{ checkCheckmate }}
     </span>
-    <VueContext
-      ref="menu"
-      @open="onOpen($event, { move: move })"
-      @close="onClose"
-    >
-      <li>
-        <a
-          v-if="!mainLine.includes(move)"
-          href="#"
-          @click.prevent="promote(move)"
-        >Promote Variation</a>
-      </li>
-      <li>
-        <a
-          href="#"
-          @click.prevent="deleteMove(move)"
-        >Delete Variation</a>
-      </li>
-    </VueContext>
     <span v-if="move.fen === mainFirstMove.fen">
       <MoveHistoryNode
         v-for="variation in firstMovesFiltered"
@@ -88,13 +69,9 @@
 <script>
 
 import ffish from 'ffish'
-import VueContext from 'vue-context/src/js/index'
-
+import ContextMenu from '@imengyu/vue3-context-menu'
 export default {
   name: 'MoveHistoryNode',
-  components: {
-    VueContext
-  },
   props: {
     move: {
       default: undefined,
@@ -183,6 +160,26 @@ export default {
   methods: {
     dummy () {
       return null
+    },
+    openMenu (event, move) {
+      ContextMenu.showContextMenu({
+        x: event.x,
+        y: event.y,
+        items: [
+          ...(!this.mainLine.includes(move)
+            ? [
+                {
+                  label: 'Promote Variation',
+                  onClick: () => this.promote(move)
+                }
+              ]
+            : []),
+          {
+            label: 'Delete Variation',
+            onClick: () => this.deleteMove(move)
+          }
+        ]
+      })
     },
     onOpen (event, data) {
       if (this.displayMenu) {

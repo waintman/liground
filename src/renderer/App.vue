@@ -14,7 +14,7 @@ export default {
 @import "../../node_modules/vue-multiselect/dist/vue-multiselect.min.css";
 @import '../../node_modules/pretty-checkbox/dist/pretty-checkbox.css';
 @import './assets/mdi-icons/materialdesignicons.min.css';
-@import '~vue-context/dist/css/vue-context.css';
+@import '../../node_modules/@imengyu/vue3-context-menu/lib/vue3-context-menu.css';
 
 @font-face {
   font-family: "Noto Chess";

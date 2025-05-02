@@ -1,19 +1,30 @@
 <template>
   <div class="base-demo">
-    <VueTableDynamic :params="params" />
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th v-for="header in headers" :key="header">
+            {{ header }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td v-for="value in values" :key="value">
+            {{ value }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <script>
-import VueTableDynamic from 'vue-table-dynamic'
-
 export default {
   name: 'EngineStats',
-  components: {
-    VueTableDynamic
-  },
   data () {
     return {
+      headers: ['Depth / Sel. Depth', 'Nodes/s', 'Nodes', 'Time', 'Hash', 'TB Hits'],
       parentEngineStats: {
         depth: 0,
         seldepth: 0,
@@ -28,32 +39,17 @@ export default {
   },
 
   computed: {
-    params () {
-      if (this.engineIndex === 1) {
-        const { depth, seldepth, nps, nodes, enginetime, hashfull, tbhits } = this.$store.getters
-        return {
-          data: [
-            ['Depth / Sel. Depth', 'Nodes/s', 'Nodes', 'Time', 'Hash', 'TB Hits'],
-            [depth + ' / ' + seldepth, this.parse(nps) + 'nps', this.parse(nodes), this.parseTime(enginetime), hashfull, this.parse(tbhits)]
-          ],
-          columnWidth: [{ column: 0, width: 150 }],
-          header: 'row',
-          border: true,
-          stripe: true
-        }
-      } else {
-        const { depth, seldepth, nps, nodes, enginetime, hashfull, tbhits } = this.parentEngineStats
-        return {
-          data: [
-            ['Depth / Sel. Depth', 'Nodes/s', 'Nodes', 'Time', 'Hash', 'TB Hits'],
-            [depth + ' / ' + seldepth, this.parse(nps) + 'nps', this.parse(nodes), this.parseTime(enginetime), hashfull, this.parse(tbhits)]
-          ],
-          columnWidth: [{ column: 0, width: 150 }],
-          header: 'row',
-          border: true,
-          stripe: true
-        }
-      }
+    values () {
+      const source = this.engineIndex === 1 ? this.$store.getters : this.parentEngineStats
+      const { depth, seldepth, nps, nodes, enginetime, hashfull, tbhits } = source
+      return [
+        `${depth} / ${seldepth}`,
+        `${this.parse(nps)} nps`,
+        this.parse(nodes),
+        this.parseTime(enginetime),
+        hashfull,
+        this.parse(tbhits)
+      ]
     }
   },
   methods: {
@@ -84,13 +80,18 @@ export default {
 </script>
 
 <style>
-thead {
+.custom-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.custom-table thead {
   font-style: normal;
   font-weight: bold;
   background-color: #ddd;
 }
 
-tbody {
+.custom-table tbody {
   font-style: normal;
   font-weight: bold;
   font-weight: normal

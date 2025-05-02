@@ -1,40 +1,12 @@
 <template>
   <div class="pv-lines">
     <div class="scroller">
-      <VueContext
-        ref="menu1"
-        v-slot="{ data }"
-      >
-        <li>
-          <a
-            href="#"
-            @click.prevent="asMain($event.target, data)"
-          >Play as main line</a>
-        </li>
-        <li>
-          <a
-            href="#"
-            @click.prevent="asAlt($event.target, data)"
-          >Play line as alternative</a>
-        </li>
-      </VueContext>
-      <VueContext
-        ref="menu2"
-        v-slot="{ data }"
-      >
-        <li>
-          <a
-            href="#"
-            @click.prevent="asMain($event.target, data)"
-          >Play entire line</a>
-        </li>
-      </VueContext>
       <template
         v-for="(line, id) in lines"
       >
         <div
           v-if="line"
-          :key="id"
+          :key="`line-${id}`"
           class="item clickable"
           @mouseenter="onMouseEnter(id)"
           @mouseleave="onMouseLeave(id)"
@@ -43,14 +15,14 @@
           <span class="left">{{ line.cpDisplay }}</span>
           <span
             class="right"
-            @contextmenu.prevent="(currentMove && currentMove.main) || (!currentMove && mainFirstMove) ? $refs.menu1.open($event, { line: line }) : $refs.menu2.open($event, { line: line })"
+            @contextmenu.prevent="openMenu($event, line)"
           >
             {{ line.pv }}
           </span>
         </div>
         <div
           v-else
-          :key="id"
+          :key="`placeholder-${id}`"
           class="item placeholder"
         >
           ...
@@ -83,12 +55,8 @@
 
 <script>
 import { mapGetters } from 'vuex'
-import VueContext from 'vue-context/src/js/index'
-
+import ContextMenu from '@imengyu/vue3-context-menu'
 export default {
-  components: {
-    VueContext
-  },
   data () {
     return {
       lines: [],
@@ -184,14 +152,30 @@ export default {
     fillInfo (payload) {
       this.engineInfo = payload
     },
-    asMain (target, data) {
-      const mainLine = data.line.pvUCI.split(' ')
+    openMenu (event, line) {
+      ContextMenu.showContextMenu({
+        x: event.x,
+        y: event.y,
+        items: [
+          {
+            label: 'Play as main line',
+            onClick: () => this.asMain(line)
+          },
+          {
+            label: 'Playe as alternative',
+            onClick: () => this.asAlt(line)
+          }
+        ]
+      })
+    },
+    asMain (line) {
+      const mainLine = line.pvUCI.split(' ')
       const prevMov = this.currentMove
       console.log(mainLine)
       this.$store.dispatch('pushMainLine', { line: mainLine, prev: prevMov })
     },
-    asAlt (target, data) {
-      const mainLine = data.line.pvUCI.split(' ')
+    asAlt (line) {
+      const mainLine = line.pvUCI.split(' ')
       const prevMov = this.currentMove
       this.$store.dispatch('pushAltLine', { line: mainLine, prev: prevMov })
     },

@@ -200,7 +200,6 @@ import ChessGround from './ChessGround'
 import PieceStyleSelector from './PieceStyleSelector'
 import BoardStyleSelector from './BoardStyleSelector'
 import PVLines from './PVLines'
-import Vue from 'vue'
 import PgnBrowser from './PgnBrowser.vue'
 import SettingsTab from './SettingsTab'
 import GameInfo from './GameInfo.vue'
@@ -516,21 +515,6 @@ export default {
     },
     deselectPocketPieces () {
       this.$store.commit('selectPocketPiece', ['boardA', ''])
-    },
-    getBoardPos (event) {
-      if (event.explicitOriginalTarget.className === 'cg-board' && this.selectedPockedPiece.boardA !== '') {
-        // get click field
-        const x = Math.floor(event.layerX / 40)
-        const y = Math.floor(event.layerY / 40)
-        // var stringPos = y * 9 + x
-
-        const letters = { 0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: 'e', 5: 'f', 6: 'g', 7: 'h' }
-        let pieceCode = Vue.methds.pieceTypeToShort(this.selectedPockedPiece.boardA)
-        pieceCode = { type: pieceCode, color: this.turnColor.charAt(0) }
-        this.$store.dispatch('insertPieceAtPosition', ['boardA', pieceCode, letters[x] + (8 - y)])
-      } else {
-        this.deselectPocketPieces()
-      }
     },
     showInfo (event) {
       console.log(`showInfo: ${this.fen}`)

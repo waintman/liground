@@ -35,6 +35,11 @@ function createWindow () {
   mainWindow.maximize()
   mainWindow.loadURL(winURL)
   mainWindow.removeMenu()
+  mainWindow.webContents.on('before-input-event', (_, input) => {
+    if (input.type === 'keyDown' && input.key === 'F12') {
+      mainWindow.webContents.toggleDevTools()
+    }
+  })
   ipcMain.handle('openPGN', async () => {
     let _result
     await dialog.showOpenDialog({

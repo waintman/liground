@@ -321,7 +321,9 @@ export default {
   mounted () {
     this.currentVariant = this.variant
     this.engineID = this.engineIndex
-    this.$refs.pvlines.currentEngineIndex(this.engineID)
+    if (this.$refs.pvlines) {
+      this.$refs.pvlines.currentEngineIndex(this.engineID)
+    }
     this.$refs.console.setEngineIndex(this.engineID)
     this.$refs.enginestats.fillID(this.engineID)
     this.$refs.engineselect.setEngineIndex(this.engineIndex)
@@ -367,7 +369,9 @@ export default {
     },
     async changeConsole (event) {
       if (this.engineID === 1 && this.canceltwice) {
-        this.$refs.console.changeBinary(event)
+        if (this.$refs.console) {
+          this.$refs.console.changeBinary(event)
+        }
         this.canceltwice = false
       } else if (this.engineID !== 1) {
         if (this.currentVariant !== this.variant) {
@@ -375,7 +379,9 @@ export default {
           this.currentVariant = this.variant
         }
         this.isEngineActive = false
-        await this.$refs.console.changeBinary(event)
+        if (this.$refs.console) {
+          await this.$refs.console.changeBinary(event)
+        }
       }
     },
     changeState () {

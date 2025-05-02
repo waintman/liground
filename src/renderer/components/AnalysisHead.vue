@@ -4,20 +4,20 @@
     <Multiselect
       v-if="QuickTourIndex !== 7"
       class="multiselect"
-      :value="displayVariant"
+      :modelValue="displayVariant"
       :options="options"
       :allow-empty="false"
       :show-labels="false"
-      @input="updateVariant"
+      @update:modelValue="updateVariant"
     />
     <Multiselect
       v-else
       class="multiselect-qt"
-      :value="displayVariant"
+      :modelValue="displayVariant"
       :options="options"
       :allow-empty="false"
       :show-labels="false"
-      @input="updateVariant"
+      @update:modelValue="updateVariant"
     />
     <div class="resetButton">
       <input
