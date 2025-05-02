@@ -45,6 +45,7 @@ import ffish from 'ffish'
 import AboutTabModal from './AboutTabModal'
 import QuicktourModal from './QuicktourModal'
 import { ipcRenderer } from 'electron'
+import { markRaw } from 'vue'
 export default {
   name: 'MenuBar',
   components: { AboutTabModal, QuicktourModal },
@@ -105,7 +106,7 @@ export default {
         m.forEach((match, groupIndex) => {
           let game
           try {
-            game = ffish.readGamePGN(match)
+            game = markRaw(ffish.readGamePGN(match))
           } catch (error) {
             numOfUnparseableGames = numOfUnparseableGames + 1
             return

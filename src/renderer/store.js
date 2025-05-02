@@ -2,10 +2,9 @@ import { createStore } from 'vuex'
 import ffish from 'ffish'
 import { engine } from './engine'
 import allEngines from './store/engines'
-
+import { markRaw } from 'vue'
 import moveAudio from './assets/audio/Move.mp3'
 import captureAudio from './assets/audio/Capture.mp3'
-let globalBoard = null
 
 class TwoWayMap {
   constructor (map) {
@@ -186,7 +185,7 @@ export const store = createStore({
       hoveredpv: -1,
       counter: 0,
       pieceStyle: 'cburnett',
-      // board: null,
+      board: null,
       gameInfo: {},
       loadedGames: [],
       rounds: null,
@@ -397,27 +396,27 @@ export const store = createStore({
       const { fen, is960 } = payload || {}
       if (typeof fen === 'string') {
         if (is960) {
-          globalBoard = new ffish.Board(state.variant, fen, true)
+          state.board = markRaw(new ffish.Board(state.variant, fen, true))
         } else {
-          globalBoard = new ffish.Board(state.variant, fen)
+          state.board = markRaw(new ffish.Board(state.variant, fen))
         }
       } else {
         if (is960) {
           console.log(state.curVar960Fen)
-          globalBoard = new ffish.Board(state.variant, state.curVar960Fen, true)
+          state.board = markRaw(new ffish.Board(state.variant, state.curVar960Fen, true))
         } else {
-          globalBoard = new ffish.Board(state.variant)
+          state.board = markRaw(new ffish.Board(state.variant))
         }
       }
       state.moves = []
       state.mainFirstMove = null
       state.firstMoves = []
       state.gameInfo = {}
-      state.fen = globalBoard.fen()
-      state.turn = globalBoard.turn()
-      state.legalMoves = globalBoard.legalMoves()
-      state.lastFen = globalBoard.fen()
-      state.startFen = globalBoard.fen()
+      state.fen = state.board.fen()
+      state.turn = state.board.turn()
+      state.legalMoves = state.board.legalMoves()
+      state.lastFen = state.board.fen()
+      state.startFen = state.board.fen()
       state.selectedGame = null
       state.fenply = 1
       this.commit('resetEngineStats')
@@ -451,10 +450,10 @@ export const store = createStore({
       }
       if (!alreadyInMoves) {
         state.moves = state.moves.concat(mov.map((curVal, idx, arr) => {
-          const sanMove = globalBoard.sanMove(curVal)
-          globalBoard.push(curVal)
+          const sanMove = state.board.sanMove(curVal)
+          state.board.push(curVal)
           this.commit('playAudio', sanMove)
-          return { ply: ply, name: sanMove, fen: globalBoard.fen(), uci: curVal, whitePocket: globalBoard.pocket(true), blackPocket: globalBoard.pocket(false), main: undefined, next: [], prev: prev }
+          return { ply: ply, name: sanMove, fen: state.board.fen(), uci: curVal, whitePocket: state.board.pocket(true), blackPocket: state.board.pocket(false), main: undefined, next: [], prev: prev }
         }))
         if (payload.prev) { // if the move is not a starting move
           prev.next.push(state.moves[state.moves.length - 1]) // the last entry in moves is the move object of the current move
@@ -468,9 +467,9 @@ export const store = createStore({
           }
         }
       } else {
-        globalBoard.push(alreadyInMoves.uci)
+        state.board.push(alreadyInMoves.uci)
       }
-      state.lastFen = globalBoard.fen()
+      state.lastFen = state.board.fen()
     },
     playAudio (state, move) { // Sounds from lichess https://github.com/ornicar/lila
       if (state.openedPGN) {
@@ -596,14 +595,14 @@ export const store = createStore({
       context.commit('initialized', true)
     },
     updateBoard (context) {
-      const board = globalBoard
+      const { board } = context.state
       board.setFen(context.state.fen)
       context.commit('turn', board.turn())
       context.commit('legalMoves', board.legalMoves())
     },
     push (context, payload) {
       context.commit('appendMoves', payload)
-      context.dispatch('fen', globalBoard.fen())
+      context.dispatch('fen', context.state.board.fen())
     },
     pushMainLine (context, payload) {
       let prev = payload.prev
@@ -618,7 +617,7 @@ export const store = createStore({
           prev = prev.main
         }
       }
-      context.dispatch('fen', globalBoard.fen())
+      context.dispatch('fen', context.state.board.fen())
     },
     pushAltLine (context, payload) {
       let prev = payload.prev
@@ -633,7 +632,7 @@ export const store = createStore({
         }
         prev = move
       }
-      context.dispatch('fen', globalBoard.fen())
+      context.dispatch('fen', context.state.board.fen())
     },
     mainFirstMove (context, payload) {
       if (context.state.mainFirstMove !== payload) {
@@ -967,7 +966,7 @@ export const store = createStore({
       const options = {
         // variant & 960 are handled separately and always set
         UCI_Variant: context.getters.variant,
-        UCI_Chess960: globalBoard.is960(),
+        UCI_Chess960: context.state.board.is960(),
 
         // multi pv 5 is default
         MultiPV: 5
@@ -1029,7 +1028,7 @@ export const store = createStore({
           multipv[0] = { mate: payload.mate }
         } else {
           const ucimove = payload.pv.split(/\s/)[0]
-          const board = globalBoard
+          const { board } = context.state
 
           // assert first move is valid
           if (board.legalMoves().includes(ucimove)) {
@@ -1181,8 +1180,8 @@ export const store = createStore({
     curVar960Fen (state) {
       return state.curVar960Fen
     },
-    board () {
-      return globalBoard
+    board (state) {
+      return state.board
     },
     initialized (state) {
       return state.initialized
@@ -1337,8 +1336,8 @@ export const store = createStore({
 
       if (typeof mate === 'number') {
         return `#${calcForSide(mate, state.turn)}`
-      } else if (globalBoard != null && globalBoard.isGameOver()) {
-        return globalBoard.result()
+      } else if (state.board != null && state.board.isGameOver()) {
+        return state.board.result()
       } else {
         return cpToString(getters.cpForWhite)
       }
@@ -1381,8 +1380,8 @@ export const store = createStore({
     legalMoves (state) {
       return state.legalMoves
     },
-    pocket () {
-      return (turn) => globalBoard.pocket(turn)
+    pocket (state) {
+      return (turn) => state.board.pocket(turn)
     },
     gameInfo (state) {
       return state.gameInfo
@@ -1411,17 +1410,17 @@ export const store = createStore({
     isShogi (state) {
       return state.shogiVariants.includes(state.variant)
     },
-    moveStack () {
-      return globalBoard.moveStack()
+    moveStack (state) {
+      return state.board.moveStack()
     },
-    isGameOver () {
-      return globalBoard.isGameOver()
+    isGameOver (state) {
+      return state.board.isGameOver()
     },
-    sanMove () {
-      return (uciMove) => globalBoard.sanMove(uciMove)
+    sanMove (state) {
+      return (uciMove) => state.board.sanMove(uciMove)
     },
-    is960 () {
-      return globalBoard.is960()
+    is960 (state) {
+      return state.board.is960()
     },
     dimensionNumber (state) {
       if (state.internationalVariants.includes(state.variant)) {

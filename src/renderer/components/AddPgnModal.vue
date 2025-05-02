@@ -51,6 +51,7 @@ import fs from 'fs'
 import { mapGetters } from 'vuex'
 import ffish from 'ffish'
 import { ipcRenderer } from 'electron'
+import { markRaw } from 'vue'
 
 export default {
   name: 'AddPgnModal',
@@ -127,7 +128,7 @@ export default {
         m.forEach((match, groupIndex) => {
           let game
           try {
-            game = ffish.readGamePGN(match)
+            game = markRaw(ffish.readGamePGN(match))
           } catch (error) {
             numOfUnparseableGames = numOfUnparseableGames + 1
             return
