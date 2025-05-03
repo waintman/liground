@@ -324,9 +324,11 @@ export default {
     if (this.$refs.pvlines) {
       this.$refs.pvlines.currentEngineIndex(this.engineID)
     }
-    this.$refs.console.setEngineIndex(this.engineID)
-    this.$refs.enginestats.fillID(this.engineID)
-    this.$refs.engineselect.setEngineIndex(this.engineIndex)
+    this.$nextTick(() => {
+      this.$refs.console.setEngineIndex(this.engineID)
+      this.$refs.enginestats.fillID(this.engineID)
+      this.$refs.engineselect.setEngineIndex(this.engineIndex)
+    })
   },
   methods: {
     saveClipboard () {
@@ -353,15 +355,21 @@ export default {
     },
     fillMultiPVCount (event) {
       this.multipvCount = event
-      this.$refs.pvlines.fillpvCount(this.multipvCount)
+      if (this.$refs.pvlines) {
+        this.$refs.pvlines.fillpvCount(this.multipvCount)
+      }
     },
     fillMultiPV (event) {
       this.multipv = event
-      this.$refs.pvlines.fillPV(this.multipv)
+      if (this.$refs.pvlines) {
+        this.$refs.pvlines.fillPV(this.multipv)
+      }
     },
     fillEngineInfo (event) {
       this.engineInfo = event
-      this.$refs.pvlines.fillInfo(this.engineInfo)
+      if (this.$refs.pvlines) {
+        this.$refs.pvlines.fillInfo(this.engineInfo)
+      }
     },
     fillEngineStats (event) {
       this.engineStats = event
@@ -369,10 +377,13 @@ export default {
     },
     async changeConsole (event) {
       if (this.engineID === 1 && this.canceltwice) {
-        if (this.$refs.console) {
-          this.$refs.console.changeBinary(event)
-        }
-        this.canceltwice = false
+        this.$nextTick(() => {
+          const consoleRef = this.$refs.console
+          if (consoleRef) {
+            this.$refs.console.changeBinary(event)
+          }
+          this.canceltwice = false
+        })
       } else if (this.engineID !== 1) {
         if (this.currentVariant !== this.variant) {
           this.$refs.console.stopEngine()
