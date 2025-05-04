@@ -63,9 +63,12 @@ function startRenderer () {
     const server = new WebpackDevServer(
       {
         port: 9080,
-        static: {
+        static: [{
           directory: path.join(__dirname, '../')
         },
+        {
+          directory: path.join(__dirname, '../node_modules/ffish')
+        }],
         hot: true,
         setupMiddlewares: (middlewares, devServer) => {
           devServer.app.use(hotMiddleware)
