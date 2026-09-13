@@ -11,7 +11,6 @@
         >
         <span
           id="icon"
-          slot="extra"
           class="icon mdi mdi-magnify"
         />
         <i
@@ -24,12 +23,23 @@
           class="icon mdi mdi-plus-box-outline"
           @click="openAddPgnModal()"
         />
+        <i
+          id="icon"
+          class="icon mdi mdi-content-save-outline"
+          title="Save current game"
+          @click="openSaveGameModal()"
+        />
       </div>
       <div>
         <AddPgnModal
           v-if="AddPgnModal.visible"
           :title="AddPgnModal.title"
           @close="AddPgnModal.visible = false"
+        />
+        <SaveGameModal
+          v-if="SaveGameModal.visible"
+          :title="SaveGameModal.title"
+          @close="SaveGameModal.visible = false"
         />
       </div>
       <template v-if="groupByRound">
@@ -45,7 +55,6 @@
           >
             Round {{ round.name }} <span style="font-size: 0.65em"> ({{ round.eventName.substring(0, 15) }}...) </span>
             <span
-              slot="extra"
               class="icon mdi"
               :class="[round.visible ? 'mdi-menu-up' : 'mdi-menu-down']"
               style="float: right;"
@@ -94,25 +103,28 @@
 </template>
 
 <script>
-import { ipcRenderer } from 'electron'
 import { mapGetters } from 'vuex'
 import AddPgnModal from './AddPgnModal'
+import SaveGameModal from './SaveGameModal'
+import { ipcRenderer } from 'electron'
 
 export default {
   name: 'PgnBrowser',
-  components: { AddPgnModal },
+  components: { AddPgnModal, SaveGameModal },
   data: function () {
     return {
       AddPgnModal: {
         visible: false,
         title: ''
       },
+      SaveGameModal: {
+        visible: false,
+        title: ''
+      },
       gameFilter: '',
       rounds: [],
       groupByRound: true,
-      displayUnsupported: false,
-      menu: undefined,
-      contextMenuEvents: undefined
+      displayUnsupported: false
     }
   },
   computed: {
@@ -154,18 +166,11 @@ export default {
       }
     }
   },
-  created: function () {
-    ipcRenderer.on('toggleGroup', (e, newVal) => {
-      this.groupByRound = newVal
-    })
-
-    ipcRenderer.on('toggleUnsupported', (e, newVal) => {
-      this.displayUnsupported = newVal
-    })
-
-    ipcRenderer.on('openAllRounds', () => this.setVisibilityOfAllRounds(true))
-
-    ipcRenderer.on('collapseAllRounds', () => this.setVisibilityOfAllRounds(false))
+  created () {
+    ipcRenderer.on('context-menu-command', this.onContextMenuCommand)
+  },
+  beforeUnmount () {
+    ipcRenderer.removeListener('context-menu-command', this.onContextMenuCommand)
   },
   methods: {
     isGameVisible (game) {
@@ -177,8 +182,34 @@ export default {
         return false
       }
     },
-    openContextMenu () {
-      ipcRenderer.send('show-context-menu')
+    onContextMenuCommand (event, payload) {
+      if (!payload) return
+      switch (payload.id) {
+        case 'toggleGroup':
+          this.groupByRound = !!payload.checked
+          break
+        case 'toggleUnsupported':
+          this.displayUnsupported = !!payload.checked
+          break
+        case 'openAllRounds':
+          this.setVisibilityOfAllRounds(true)
+          break
+        case 'collapseAllRounds':
+          this.setVisibilityOfAllRounds(false)
+          break
+      }
+    },
+    async openContextMenu () {
+      try {
+        await ipcRenderer.invoke('show-context-menu', [
+          { id: 'toggleGroup', label: 'Group by rounds', type: 'checkbox', checked: this.groupByRound },
+          { id: 'toggleUnsupported', label: 'Display unsupported', type: 'checkbox', checked: this.displayUnsupported },
+          { id: 'openAllRounds', label: 'Open all rounds', type: 'normal' },
+          { id: 'collapseAllRounds', label: 'Collapse all rounds', type: 'normal' }
+        ])
+      } catch (err) {
+        console.log(err)
+      }
     },
     setVisibilityOfAllRounds (value) {
       this.rounds.forEach(round => {
@@ -191,14 +222,22 @@ export default {
         title: 'Add new PGN'
       }
     },
+    openSaveGameModal () {
+      this.SaveGameModal = {
+        visible: true,
+        title: 'Save current game'
+      }
+    },
     removeSafedPGN () {
       if (confirm('Do you really want to remove the safed PGNs and reset the board?')) {
         document.dispatchEvent(new Event('resetPlot'))
         this.$store.dispatch('resetBoard', { is960: false }) // used to exit 960 Mode
-      }
-      if (this.$store.getters.loadedGames) {
+        if (ipcRenderer) {
+          ipcRenderer.invoke('clear-all-game-paths')
+        }
         const games = []
         this.$store.dispatch('loadedGames', games)
+        localStorage.removeItem('PGNPath')
       }
     }
   }

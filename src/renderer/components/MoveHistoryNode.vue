@@ -20,12 +20,26 @@
     <span
       v-if="printRoot"
       class="move-name"
-      :class="{ current : move.fen === fen }"
+      :class="{ current : move.fen === fen, hasComment: move.comment }"
       @click="updateBoard(move)"
       @contextmenu.prevent="openMenu($event, move)"
     >
       {{ checkCheckmate }}
     </span>
+    <span
+      v-if="move.comment && printRoot"
+      class="move-comment"
+    >
+      {{ '{' + move.comment + '}' }}
+    </span>
+    <AddCommentModal
+      v-if="showCommentModal"
+      :move-name="move.name"
+      :existing-comment="move.comment"
+      @close="showCommentModal = false"
+      @save="saveComment"
+      @delete="deleteCommentFromMove"
+    />
     <span v-if="move.fen === mainFirstMove.fen">
       <MoveHistoryNode
         v-for="variation in firstMovesFiltered"
@@ -70,8 +84,13 @@
 
 import ffish from 'ffish'
 import ContextMenu from '@imengyu/vue3-context-menu'
+import AddCommentModal from './AddCommentModal'
+
 export default {
   name: 'MoveHistoryNode',
+  components: {
+    AddCommentModal
+  },
   props: {
     move: {
       default: undefined,
@@ -88,6 +107,11 @@ export default {
     beginVariation: {
       default: false,
       type: Boolean
+    }
+  },
+  data () {
+    return {
+      showCommentModal: false
     }
   },
   computed: {
@@ -148,6 +172,7 @@ export default {
       if (legalMoves.length === 0 && !name.includes('#') && this.move.prev && this.move.prev.prev && this.move.prev.prev.name.includes('+')) {
         name = this.move.name + '#'
       }
+      board.delete()
       return name
     }
   },
@@ -166,6 +191,10 @@ export default {
         x: event.x,
         y: event.y,
         items: [
+          {
+            label: move.comment ? 'Edit Comment' : 'Add Comment',
+            onClick: () => this.openAddCommentModal()
+          },
           ...(!this.mainLine.includes(move)
             ? [
                 {
@@ -294,6 +323,23 @@ export default {
     },
     updateBoard (move) {
       this.$store.dispatch('fen', move.fen)
+    },
+    openAddCommentModal () {
+      this.showCommentModal = true
+    },
+    saveComment (commentText) {
+      // eslint-disable-next-line
+      this.move.comment = commentText
+      this.showCommentModal = false
+      this.$store.dispatch('displayMenu', true)
+      this.$store.dispatch('menuAtMove', null)
+    },
+    deleteCommentFromMove () {
+      // eslint-disable-next-line
+      this.move.comment = undefined
+      this.showCommentModal = false
+      this.$store.dispatch('displayMenu', true)
+      this.$store.dispatch('menuAtMove', null)
     }
   }
 }
@@ -318,6 +364,20 @@ export default {
   margin-right: 4px;
   pointer-events: auto;
   font-family: 'Noto Chess', sans-serif;
+}
+.move-name.hasComment {
+  font-weight: bold;
+  text-decoration: underline;
+}
+.move-comment {
+  margin-left: 4px;
+  font-size: 0.85em;
+  color: black;
+  font-style: italic;
+  font-weight: bold;
+  background-color: var(--variation-color);
+  padding: 2px 4px;
+  border-radius: 2px;
 }
 .variation {
   background-color:var(--variation-color);

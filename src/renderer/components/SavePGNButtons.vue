@@ -6,7 +6,6 @@
       :class="{ grey : variant === 'racingkings' }"
       @click="$emit('flip-board', 0)"
     ><i
-      slot="extra"
       class="icon mdi mdi-rotate-3d-variant"
     /></a>
     <a
@@ -15,7 +14,6 @@
       :class="{ grey : !currentMove }"
       @click="$emit('move-to-start', 0)"
     ><i
-      slot="extra"
       class="icon mdi mdi-skip-backward"
     /></a>
     <a
@@ -24,7 +22,6 @@
       :class="{ grey : !currentMove }"
       @click="$emit('move-back-one', 0)"
     ><i
-      slot="extra"
       class="icon mdi mdi-skip-previous"
     /></a>
     <a
@@ -33,7 +30,6 @@
       :class="{ grey : moves.length === 0 || ( currentMove && !currentMove.main ) }"
       @click="$emit('move-forward-one', 0)"
     ><i
-      slot="extra"
       class="icon mdi mdi-skip-next"
     /></a>
     <a
@@ -42,7 +38,6 @@
       :class="{ grey : moves.length === 0 || ( currentMove && !currentMove.main ) }"
       @click="$emit('move-to-end', 0)"
     ><i
-      slot="extra"
       class="icon mdi mdi-skip-forward"
     /></a>
   </div>
@@ -54,10 +49,11 @@
 // import HookIcon from 'mdi-vue/Hook.vue'
 
 export default {
-  name: 'JumpButtons',
+  name: 'SavePGNButtons',
   components: {
     // HookIcon
   },
+  emits: ['flip-board', 'move-to-start', 'move-back-one', 'move-forward-one', 'move-to-end'],
   computed: {
     currentMove () { // returns undefined when the current fen doesnt match a move from the history, otherwise it returns move from the moves array that matches the current fen
       for (let num = 0; num < this.moves.length; num++) {

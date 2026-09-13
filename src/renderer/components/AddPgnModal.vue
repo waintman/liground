@@ -61,6 +61,7 @@ export default {
       type: String
     }
   },
+  emits: ['close'],
   data () {
     return {
       error: 'none',
@@ -83,22 +84,40 @@ export default {
     close () {
       this.$emit('close')
     },
-    openPgn () {
-      ipcRenderer.invoke('openPGN').then((result) => {
-        localStorage.PGNPath = JSON.stringify(result.filePaths[0])
-        this.openPGNFromPath(result.filePaths[0])
-      })
+    async openPgn () {
+      try {
+        const res = await ipcRenderer.invoke('show-open-dialog', {
+          title: 'Open PGN file',
+          properties: ['openFile'],
+          filters: [
+            { name: 'PGN Files', extensions: ['pgn'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        })
+        const file = Array.isArray(res && res.filePaths) ? res.filePaths[0] : undefined
+        if (file) {
+          localStorage.PGNPath = JSON.stringify(file)
+          this.openPGNFromPath(file)
+        }
+      } catch (err) {
+        console.log(err)
+      }
     },
-    openPGNFromPath (path) {
-      fs.readFile(path, 'utf8', (err, data) => {
+    async openPGNFromPath (path) {
+      fs.readFile(path, 'utf8', async (err, data) => {
         if (err) {
           return console.log(err)
         }
-
         // convert CRLF to LF
         data = data.replace(/\r\n/g, '\n')
         this.convertAndStorePgn(data)
         this.close()
+        // Add the file path to saved games
+        try {
+          await ipcRenderer.invoke('add-game-path', path)
+        } catch (error) {
+          console.error('Error adding game path:', error)
+        }
       })
     },
     openPGNFromString () {
@@ -112,7 +131,7 @@ export default {
       }
     },
     convertAndStorePgn (data) {
-      const regex = /(?:\[.+ ".*"\]\r?\n)+\r?\n+(?:.+\r?\n)*/gm
+      const regex = /((?:\[[^\]]+\][\r\n]+)+[\r\n]+(?:[^[][\s\S]*)?(?=(?:\[[^\]]+\][\r\n]+)|$))/g
       let games = []
       if (this.$store.getters.loadedGames) { // keep already loaded pgns
         games = this.$store.getters.loadedGames
@@ -125,17 +144,17 @@ export default {
         if (m.index === regex.lastIndex) {
           regex.lastIndex++
         }
-        m.forEach((match, groupIndex) => {
-          let game
-          try {
-            game = markRaw(ffish.readGamePGN(match))
-          } catch (error) {
-            numOfUnparseableGames = numOfUnparseableGames + 1
-            return
-          }
-          currentGameCount++
-          games.push(game)
-        })
+        let game
+        try {
+          game = markRaw(ffish.readGamePGN(m[0]))
+        } catch (error) {
+          numOfUnparseableGames = numOfUnparseableGames + 1
+          continue
+        }
+        currentGameCount++
+        // Store the original PGN text for comment extraction
+        game.originalPGN = m[0]
+        games.push(game)
       }
 
       if (numOfUnparseableGames !== 0) {

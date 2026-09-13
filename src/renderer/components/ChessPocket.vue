@@ -53,6 +53,7 @@ export default {
       default: ''
     }
   },
+  emits: ['selection'],
   computed: {
     orientation () {
       return this.$store.getters.orientation

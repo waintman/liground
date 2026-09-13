@@ -1,7 +1,6 @@
 <template>
   <div class="playerinfo">
     <i
-      slot="extra"
       class="icon mdi"
       :class="[isWhite ? 'mdi-checkbox-blank-circle-outline' : 'mdi-checkbox-blank-circle']"
     />

@@ -4,14 +4,6 @@
     <div>
       <div class="main-grid">
         <div class="chessboard-grid">
-          <PgnBrowser
-            v-if="QuickTourIndex !== 1"
-            id="pgnbrowser"
-          />
-          <PgnBrowser
-            v-else
-            id="pgnbrowser-qt"
-          />
           <div class="board-grid">
             <div class="board">
               <span>
@@ -38,7 +30,10 @@
                   </button>
                 </div>
                 <div>
-                  <button @click="passMove()">
+                  <button
+                    :disabled="!canPass"
+                    @click="passMove()"
+                  >
                     한수쉼
                   </button>
                 </div>
@@ -111,9 +106,14 @@
               placeholder="fen position"
               :value="fen"
               :size="setFenSize()"
-              :readonly="true"
               @change="checkValidFEN"
             >
+            <div
+              v-if="opening"
+              class="opening-label"
+            >
+              {{ opening.eco }} – {{ opening.name }}
+            </div>
           </div>
           <div
             v-else
@@ -128,48 +128,40 @@
               :size="setFenSize()"
               @change="checkValidFEN"
             >
-          </div>
-          <div
-            id="reset-button"
-            class="resetButton"
-          >
-            <input
-              type="button"
-              value="Reset"
-              class="reset"
-              @click="resetBoard"
+            <div
+              v-if="opening"
+              class="opening-label"
             >
+              {{ opening.eco }} – {{ opening.name }}
+            </div>
           </div>
-          <PVLines
-            id="pv-lines"
-            ref="pvlines"
-            class="panel"
+          <JumpButtons
+            v-if="QuickTourIndex !== 14"
+            id="jump-buttons"
+            @flip-board="flipBoard"
+            @move-to-start="moveToStart"
+            @move-back-one="moveBackOne"
+            @move-forward-one="moveForwardOne"
+            @move-to-end="moveToEnd"
           />
-          <div
-            v-if="QuickTourIndex !== 5"
-            id="selector-container"
-          >
-            <PieceStyleSelector id="piece-style" />
-            <BoardStyleSelector id="board-style" />
-            <!-- <EvalPlotButton id="evalbutton-style" /> -->
-          </div>
-          <div
+          <JumpButtons
             v-else
-            id="selector-container-qt"
-          >
-            <PieceStyleSelector id="piece-style" />
-            <BoardStyleSelector id="board-style" />
-            <!-- <EvalPlotButton id="evalbutton-style" /> -->
-          </div>
+            id="jump-buttons-qt"
+            @flip-board="flipBoard"
+            @move-to-start="moveToStart"
+            @move-back-one="moveBackOne"
+            @move-forward-one="moveForwardOne"
+            @move-to-end="moveToEnd"
+          />
         </div>
-        <!-- <EvalPlot
+        <EvalPlot
           v-if="QuickTourIndex !== 6"
           id="evalplot"
         />
         <EvalPlot
           v-else
           id="evalplot-qt"
-        /> -->
+        />
         <div id="right-column">
           <AnalysisView
             id="analysisview"
@@ -196,13 +188,12 @@
 <script>
 import AnalysisView from './AnalysisView'
 import EvalBar from './EvalBar'
+import EvalPlot from './EvalPlot'
 import ChessGround from './ChessGround'
-import PieceStyleSelector from './PieceStyleSelector'
-import BoardStyleSelector from './BoardStyleSelector'
-import PVLines from './PVLines'
-import PgnBrowser from './PgnBrowser.vue'
+import JumpButtons from './JumpButtons'
 import SettingsTab from './SettingsTab'
 import GameInfo from './GameInfo.vue'
+import { findBestOpeningForFen } from '../../shared/openingLookup'
 import { mapGetters } from 'vuex'
 
 export default {
@@ -210,22 +201,26 @@ export default {
   components: {
     AnalysisView,
     EvalBar,
+    EvalPlot,
     ChessGround,
-    PieceStyleSelector,
-    BoardStyleSelector,
-    PVLines,
+    JumpButtons,
     GameInfo,
-    PgnBrowser,
     SettingsTab
   },
+  emits: ['resetMultiEngine'],
   data () {
     return {
       positionInfo: '',
       game: null,
+      keyboardHandler: null,
       resetAnalysis: false
     }
   },
   computed: {
+    canPass () {
+      return !this.$store.getters.EvE && (!this.$store.getters.PvE ||
+        this.$store.getters.turn === this.$store.getters.PvEPlayerIsWhite)
+    },
     viewAnalysis () {
       return this.$store.getters.viewAnalysis
     },
@@ -240,6 +235,12 @@ export default {
     },
     fen () {
       return this.$store.getters.fen
+    },
+    opening () {
+      if (!this.fen) return null
+      // only makes sense for standard chess
+      if (this.variant && this.variant !== 'chess') return null
+      return this.findOpeningProgressive()
     },
     mainFirstMove () {
       return this.$store.getters.mainFirstMove
@@ -258,9 +259,9 @@ export default {
     ...mapGetters(['QuickTourIndex', 'engineIndex'])
   },
   mounted () { // EventListener für Keyboardinput, ruft direkt die jeweilige Methode auf
-    window.addEventListener('keydown', (event) => {
+    this.keyboardHandler = (event) => {
       const keyName = event.key
-      if (event.target.nodeName.toLowerCase() !== 'input' || event.target.type.toLowerCase() === 'checkbox') {
+      if (!event.target.closest('input:not([type=checkbox]), textarea, select, [contenteditable=true]')) {
         if (keyName === 'ArrowUp') {
           event.preventDefault()
           this.moveToStart()
@@ -286,10 +287,15 @@ export default {
           this.openPrevGame()
         }
       }
-    }, false)
+    }
+    window.addEventListener('keydown', this.keyboardHandler)
+  },
+  beforeUnmount () {
+    window.removeEventListener('keydown', this.keyboardHandler)
   },
   methods: {
     passMove () {
+      if (!this.canPass) return
       let _fen = this.fen
       let uciMove = ''
       if (this.$store.getters.turn) {
@@ -323,18 +329,19 @@ export default {
           return false
         })
       }
-      this.lastMoveSan = this.$store.getters.sanMove(uciMove)
+      if (!uciMove || !this.$store.getters.legalMoves.split(' ').includes(uciMove)) return
+      const lastMoveSan = this.$store.getters.sanMove(uciMove)
       const prevMov = this.currentMove
       this.$store.dispatch('push', { move: uciMove, prev: prevMov })
       const events = {}
       events.fen = this.fen
-      events.history = [this.lastMoveSan]
+      events.history = [lastMoveSan]
       this.$store.dispatch('lastFen', this.fen)
     },
     replacePieces (str, a) {
       return str.substring(0, a) + str[a + 1] + str[a] + str.substring(a + 2)
     },
-    changeRedPieces (a, b) {
+    changeRedPieces (a) {
       let _fen = this.fen
       _fen = this.replacePieces(_fen, a)
       this.$store.dispatch('fenField', _fen)
@@ -453,6 +460,7 @@ export default {
       this.$store.dispatch('fen', mov.main.fen)
     },
     openNextGame () { // selects the next game, if a pgn with multiple games has been opened
+      if (!this.$store.getters.loadedGames.length) return
       const selGame = this.$store.getters.selectedGame
       if (selGame) {
         const loadedGames = this.$store.getters.loadedGames
@@ -466,6 +474,7 @@ export default {
       }
     },
     openPrevGame () { // selects the previous game, if a pgn with multiple games has been opened
+      if (!this.$store.getters.loadedGames.length) return
       const selGame = this.$store.getters.selectedGame
       if (selGame) {
         const loadedGames = this.$store.getters.loadedGames
@@ -516,6 +525,21 @@ export default {
     deselectPocketPieces () {
       this.$store.commit('selectPocketPiece', ['boardA', ''])
     },
+    findOpeningProgressive () {
+      let mov = this.currentMove
+      // check current position
+      const opening = findBestOpeningForFen(this.fen)
+      if (opening) return opening
+
+      // if no exact match, backtrack
+      while (mov && mov.prev) {
+        mov = mov.prev
+        const opening = findBestOpeningForFen(mov.fen)
+        if (opening) return opening
+      }
+
+      return null
+    },
     showInfo (event) {
       console.log(`showInfo: ${this.fen}`)
       console.log(`fen: ${this.$store.getters.fen}`)
@@ -549,23 +573,24 @@ export default {
 <style scoped>
 .main-grid {
   display: grid;
-  grid-template-columns: 850px auto;
-  grid-template-rows: auto auto;
+  grid-template-columns: minmax(45%, 1fr) minmax(30%, 1fr);
+  grid-template-rows: auto auto auto;
+  column-gap: 28px;
+  padding-right: 12px;
   grid-template-areas:
     "chessboard analysisview"
     "evalplot analysisview";
 }
 .chessboard-grid {
-  min-width: 850px;
   grid-area: chessboard;
   display: grid;
-  grid-template-columns: 20% 650px 5%;
-  grid-template-rows: auto 150px auto auto;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto auto;
   grid-template-areas:
-    "pgnbrowser board-grid board-grid"
-    "selector board-grid board-grid"
-    ". fenfield resetfield"
-    ". pvlinesfield pvlinesfield"
+    "board-grid"
+    "fenfield"
+    "jumpbuttons";
+  min-width: 0;
 }
 
 .board-grid {
@@ -658,8 +683,11 @@ export default {
 }
 #right-column {
   grid-area: analysisview;
-  width: 40vw;
+  width: 100%;
   max-height: calc(100vh - 25px);
+  min-width: 0;
+  padding-left: 16px;
+  box-sizing: border-box;
 }
 .tab:not(.visible) {
   display: none;
@@ -670,9 +698,20 @@ input {
 #fen-field {
   grid-area: fenfield;
   /*margin-left: 48px;*/
+  margin-top: 12px;
 }
 #fen-field-qt {
   grid-area: fenfield;
+  border: 5px solid var(--quicktour-highlight);
+  margin-top: 12px;
+}
+#jump-buttons {
+  grid-area: jumpbuttons;
+  margin-top: 8px;
+}
+#jump-buttons-qt {
+  grid-area: jumpbuttons;
+  margin-top: 8px;
   border: 5px solid var(--quicktour-highlight);
 }
 #reset-button {
@@ -686,35 +725,6 @@ input {
 #lname {
   background-color: var(--second-bg-color);
   color: var(--main-text-color)
-}
-#selector-container {
-  grid-area: selector;
-  display: grid;
-  grid-template-areas:
-  "piecestyle"
-  "boardstyle"
-  "evalButton";
-  margin-left: 5px;
-}
-#selector-container-qt {
-  grid-area: selector;
-  display: grid;
-  grid-template-areas:
-  "piecestyle"
-  "boardstyle"
-  "evalButton";
-  margin-left: 5px;
-  border: 5px solid var(--quicktour-highlight);
-}
-#piece-style {
-  grid-area: piecestyle;
-  margin-top: 10px;
-  width: 100%;
-}
-#board-style {
-  grid-area: boardstyle;
-  margin-top: 10px;
-  width: 100%;
 }
 #pgnbrowser {
   grid-area: pgnbrowser;
@@ -735,13 +745,14 @@ input {
   display: flex;
   flex-direction: row;
   justify-content: center;
-  width: max-content
+  width: 100%;
 }
 
 .board {
   grid-area: board;
   display: grid;
-  grid-template-rows: auto auto 600px auto;
+  column-gap: 12px;
+  padding-left: 12px;
   grid-template-areas:
   "gameinfo ."
   "selectRedPiecePosition selectRedPiecePosition"
@@ -761,15 +772,18 @@ input {
 #inner {
   display: table;
   margin: 0 auto;
+  padding-left: 12px;
 }
 .evalbar {
   grid-area: evalbar;
-  margin-left: 8px;
+  margin-left: 0px;
+  padding-right: 0;
   height: auto;
 }
 .evalbar-qt {
   grid-area: evalbar;
-  margin-left: 8px;
+  margin-left: 0px;
+  padding-right: 0;
   height: auto;
   border: 3px solid var(--quicktour-highlight);
 }
@@ -778,14 +792,35 @@ input {
 }
 #evalplot {
   grid-area: evalplot;
+  width: 100%;
+  max-width: none;
+  margin-top: 12px;
+  margin-left: 12px;
 }
 #evalplot-qt {
   grid-area: evalplot;
   border: 5px solid var(--quicktour-highlight);
+  width: 100%;
+  max-width: none;
+  margin-top: 12px;
+  margin-left: 12px;
 }
 #evalbutton-style {
   margin-top: 10px;
   grid-area: evalButton;
+}
+
+@media (max-width: 1100px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "chessboard"
+      "evalplot"
+      "analysisview";
+  }
+  #right-column {
+    max-height: none;
+  }
 }
 
 </style>
@@ -846,6 +881,23 @@ input {
 ::-webkit-scrollbar-corner {
   background: var(--main-bg-color);
   border-radius: 8px;
+}
+
+.opening-label {
+  margin-top: 4px;
+  font-size: 11pt;
+  color: var(--main-text-color);
+  opacity: 0.9;
+}
+
+.opening-label-qt {
+  margin-top: 4px;
+  font-size: 11pt;
+  color: var(--main-text-color);
+  opacity: 0.9;
+  border: 5px solid var(--quicktour-highlight);
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
 </style>

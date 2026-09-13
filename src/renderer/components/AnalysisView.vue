@@ -41,14 +41,33 @@ export default {
     AnalysisHead,
     AnalysisContainer
   },
+  emits: ['flip-board', 'move-to-start', 'move-back-one', 'move-forward-one', 'move-to-end'],
   data () {
     return {
       Engines: [
-        {
-          number: 1
-        }
+        { number: 1 }
       ],
-      counter: 1
+      counter: 1,
+      storeUnsubscribe: null
+    }
+  },
+  mounted () {
+    // listen for the global reset and update component-local engine list
+    this.storeUnsubscribe = this.$store.subscribe((mutation) => {
+      if (mutation.type === 'resetAllSettings') {
+        this.removeAllEngines()
+        // ensure child containers reset after DOM update
+        // It might make sense to move the code below to the removeAllEngines method
+        this.$nextTick(() => {
+          try { this.resetEngines() } catch (e) { /* ignore */ }
+        })
+      }
+    })
+  },
+  beforeUnmount () {
+    if (this.storeUnsubscribe) {
+      this.storeUnsubscribe()
+      this.storeUnsubscribe = null
     }
   },
   methods: {
@@ -75,7 +94,7 @@ export default {
     },
     addEngine () {
       this.counter++
-      this.Engines.push({ Engine: this.counter })
+      this.Engines.push({ number: this.counter })
       this.$store.dispatch('engineIndex', this.counter)
     }
   }
@@ -83,6 +102,11 @@ export default {
 </script>
 
 <style scoped>
+.analysis {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
 .analysis-container {
   margin-top: 30px;
   margin-bottom: 30px;

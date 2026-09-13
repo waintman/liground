@@ -13,10 +13,9 @@ We provide binary releases for the following plattforms:
 
 Operating System | Version
 ---              | ---
-Linux            | [**liground-0.4.0-linux.AppImage**](https://github.com/ml-research/liground/releases/download/0.4.0/liground-0.4.0-linux.AppImage)
-Windows          | [**liground-0.4.0-win.exe**](https://github.com/ml-research/liground/releases/download/0.4.0/liground-0.4.0-win.exe)                              
-Mac              | [**liground-0.4.0-mac.dmg**](https://github.com/ml-research/liground/releases/download/0.4.0/liground-0.4.0-mac.dmg)
-Mac              | [**liground-0.4.0-mac.zip**](https://github.com/ml-research/liground/releases/download/0.4.0/liground-0.4.0-mac.zip)
+Linux            | [**liground-0.5.1-linux.AppImage**](https://github.com/ml-research/liground/releases/download/0.5.1/liground-0.5.1.AppImage)
+Windows          | [**liground-Setup-0.5.1-win.exe**](https://github.com/ml-research/liground/releases/download/0.5.1/liground.Setup.0.5.1.win.exe)
+Mac              | [**liground-0.5.1-mac.zip**](https://github.com/ml-research/liground/releases/download/0.5.1/liground-0.5.1-mac.zip)
 
 The current _LiGround_ release and all its previous versions can also be found at [releases](https://github.com/ml-research/liground/releases).
 
@@ -43,9 +42,11 @@ The current _LiGround_ release and all its previous versions can also be found a
 ## Build Instructions
 
 ### Build Setup
+
+This branch integrates upstream 0.6.0 with the Vue 3 fork (Vue 3, Vuex 4, Vue Router 4, and Electron 35). Use Node.js 22.12 or newer. The lockfile supports `npm ci` without `--legacy-peer-deps`.
 ``` bash
-# install dependencies
-npm install
+# install dependencies and rebuild SQLite for Electron
+npm ci
 
 # run dev server with hot reload at localhost:9080
 npm run dev
@@ -55,14 +56,22 @@ npm run build
 
 # lint all JS/Vue component files
 npm run lint
+
+# compile the Electron main process and renderer without packaging
+npm run pack
+
+# smoke-test the compiled app with an isolated temporary profile
+npm run test:smoke
 ```
+
+The smoke test needs an installed Stockfish binary (or `LIGROUND_TEST_ENGINE` pointing to a UCI engine). It checks the Vue 3 board/chart, PGN import and comments, save/read IPC, SQLite cache, settings and new-game dialogs, and Janggi pass moves. It does not use your normal app profile.
 
 ### Post-Installation Actions
 LiGround ships with preincluded engine binaries. By default all engines are downloaded automatically into the `./engines/` folder as postinstall action. However, if no prebuilt binaries are available for you system or something goes wrong, please go ahead and build/download them manually:
 
-* Download [Stockfish 2020-06-13](https://github.com/niklasf/Stockfish/releases/fishnet-20200613) and rename it to `stockfish`
+* Stockfish 17: download the archive for your platform ([Linux AVX2](https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-ubuntu-x86-64-avx2.tar), [Windows AVX2](https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-windows-x86-64-avx2.zip), [macOS Intel](https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-macos-x86-64-avx2.tar), [macOS Apple Silicon](https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-macos-m1-apple-silicon.tar)), extract it, and copy/rename the binary to `stockfish` (or `stockfish.exe`).
 * Download [Multi-Variant-Stockfish 10](https://github.com/ddugovic/Stockfish/releases/variant_sf_10) and rename it to `multi-variant-stockfish`
-* Download [Fairy-Stockfish 13 **Largeboard**](https://github.com/ianfab/Fairy-Stockfish/releases/fairy_sf_13) and rename it to `fairy-stockfish`
+* Download [Fairy-Stockfish 14 **Largeboard**](https://github.com/fairy-stockfish/Fairy-Stockfish/releases/fairy_sf_14) and rename it to `fairy-stockfish`
 
 ### Libraries
 The following libraries or assets are used in **LiGround**:

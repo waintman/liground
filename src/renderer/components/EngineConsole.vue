@@ -61,6 +61,7 @@
 
 <script>
 import { mapGetters } from 'vuex'
+import { markRaw } from 'vue'
 import { Engine, engine } from '../engine'
 
 export default {
@@ -71,6 +72,7 @@ export default {
       default: 10
     }
   },
+  emits: ['reInitEngineOptions', 'calculateEngineStats', 'calculateMultiPV', 'calculateEngineInfo', 'sendMultiPvCount'],
   data () {
     return {
       resetting: false,
@@ -114,9 +116,9 @@ export default {
       engineName: null,
       localStorageSettings: null,
       currentlySwitchingVariant: false,
-      showConsole: true, // Flag to show Console
-      showExpandIcon: false, // Flag to show expand-down icon
-      showMinimizeIcon: true // Flag to show expand-up icon
+      showConsole: false, // Flag to show Console (default collapsed)
+      showExpandIcon: true, // Flag to show expand-down icon (default collapsed)
+      showMinimizeIcon: false // Flag to show expand-up icon
     }
   },
   computed: {
@@ -157,8 +159,8 @@ export default {
       }
     }
   },
-  beforeDestroy () {
-    if (this.engineIndex !== 1) {
+  beforeUnmount () {
+    if (this.engineIndex !== 1 && this.newEngine) {
       clearInterval(this.enginetimeID)
       this.newEngine.send('stop')
       this.newEngine.send('quit')
@@ -296,9 +298,9 @@ export default {
           this.resetEngineData()
         }
         if (this.newEngine === null) {
-          this.newEngine = new Engine()
+          this.newEngine = markRaw(new Engine())
         }
-        // this.newEngine = new Engine()
+        // this.newEngine = markRaw(new Engine())
         // TODO: more elegant way?
         // clear io on store event
         this.$store.subscribe((mutation) => {

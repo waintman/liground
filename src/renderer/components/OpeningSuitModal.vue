@@ -89,6 +89,7 @@ export default {
       type: String
     }
   },
+  emits: ['close'],
   data () {
     return {
       AddPgnModal: {
@@ -114,10 +115,23 @@ export default {
       this.$store.dispatch('position')
       this.$emit('close')
     },
-    selectPath () {
-      ipcRenderer.invoke('openPGN').then((result) => {
-        this.openFromPath(result.filePaths[0])
-      })
+    async selectPath () {
+      try {
+        const res = await ipcRenderer.invoke('show-open-dialog', {
+          title: 'Open EPD file',
+          properties: ['openFile'],
+          filters: [
+            { name: 'Epd Files', extensions: ['epd'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        })
+        const file = Array.isArray(res && res.filePaths) ? res.filePaths[0] : undefined
+        if (file) {
+          this.openFromPath(file)
+        }
+      } catch (err) {
+        console.log(err)
+      }
     },
     openFromPath (path) {
       fs.readFile(path, 'utf8', (err, data) => {

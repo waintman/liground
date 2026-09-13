@@ -23,11 +23,11 @@
       <div
         id="chessboard"
         :class="{ koth: variant==='kingofthehill', rk: variant==='racingkings', dim8x8: dimensionNumber===0, dim9x10: dimensionNumber === 3 , dim9x9: dimensionNumber === 1 }"
+        :style="{ pointerEvents: boardPointerEvents }"
         @mousewheel.ctrl.prevent="resize($event)"
       >
         <div
           class="cg-board-wrap"
-          :class="[orientation === 'black' ? 'rotate180' : '']"
           @mousedown="closeCursorHand"
           @mouseup="openCursorHand"
         >
@@ -57,6 +57,7 @@
 
 <script>
 import { mapGetters } from 'vuex'
+import { markRaw } from 'vue'
 import { Chessground } from 'chessgroundx'
 import * as cgUtil from 'chessgroundx/util'
 import ChessPocket from './ChessPocket'
@@ -214,11 +215,29 @@ export default {
         return undefined
       }
     },
-    ...mapGetters(['initialized', 'variant', 'multipv', 'hoveredpv', 'redraw', 'pieceStyle', 'boardStyle', 'fen', 'lastFen', 'orientation', 'moves', 'isPast', 'dimensionNumber', 'analysisMode', 'active', 'PvE', 'enginetime', 'resized', 'resized9x9width', 'resized9x9height', 'resized9x10width', 'resized9x10height', 'dimNumber'])
+    isPlayerTurn () {
+      // In PvE: allow moves only when it's the player's turn
+      if (this.PvE) {
+        const playerCanMove = (this.turn === 'white') === this.PvEPlayerIsWhite
+        return playerCanMove
+      }
+      // In EvE: never allow player moves (both sides are engines)
+      if (this.EvE) {
+        return false
+      }
+      // In PvP or analysis mode: always allow moves
+      return true
+    },
+    boardPointerEvents () {
+      // Block mouse input completely when not player's turn
+      return this.isPlayerTurn ? 'auto' : 'none'
+    },
+    ...mapGetters(['initialized', 'variant', 'multipv', 'hoveredpv', 'redraw', 'pieceStyle', 'boardStyle', 'fen', 'lastFen', 'orientation', 'moves', 'isPast', 'dimensionNumber', 'analysisMode', 'active', 'PvE', 'PvEPlayerIsWhite', 'EvE', 'enginetime', 'resized', 'resized9x9width', 'resized9x9height', 'resized9x10width', 'resized9x10height', 'dimNumber'])
   },
   watch: {
     dimensionNumber () {
-      const boardSize = document.querySelector('.cg-wrap')
+      const boardSize = this.$refs.board
+      if (!boardSize) return
       switch (this.dimensionNumber) {
         case 0:
           boardSize.style.width = 600 + this.enlarged + 'px'
@@ -265,11 +284,154 @@ export default {
     boardStyle (boardStyle) {
       this.updateBoardCSS(boardStyle)
     },
-    multipv () {
+    multipv: {
+      handler: 'updateEngineShapes',
+      deep: true
+    },
+    hoveredpv: 'updateEngineShapes',
+    PvE: 'updateEngineShapes',
+    EvE: 'updateEngineShapes',
+    variant () {
+      if (this.variant === 'shogi') {
+        this.piecesW = this.shogiPiecesW
+        this.piecesB = this.shogiPiecesB
+      }
+      if (this.variant === 'crazyhouse') {
+        this.piecesW = this.chessPiecesW
+        this.piecesB = this.chessPiecesB
+      }
+      this.resetPockets(this.piecesW)
+      this.resetPockets(this.piecesB)
+      if (!this.board) return
+      if (this.board.state.geometry !== this.dimensionNumber) {
+        this.board.destroy()
+        this.board = markRaw(Chessground(this.$refs.board, {
+          coordinates: true,
+          fen: this.fen,
+          turnColor: 'white',
+          resizable: true,
+          highlight: {
+            lastMove: true, // add last-move class to squares
+            check: false // add check class to squares
+          },
+          drawable: {
+            enabled: true, // can draw
+            visible: true, // can view
+            eraseOnClick: false
+          },
+          movable: {
+            events: { after: this.changeTurn(), afterNewPiece: this.afterDrag() },
+            color: 'white',
+            free: false
+          },
+          orientation: this.orientation,
+          geometry: this.$store.getters.dimensionNumber
+        }))
+
+        document.body.dispatchEvent(new Event('chessground.resize'))
+      }
+      if (this.variant === 'crazyhouse' || this.variant === 'shogi') {
+        document.body.dispatchEvent(new Event('chessground.resize'))
+      }
+      this.board.set({
+        variant: this.variant,
+        lastMove: false
+      })
+      this.updateBoard()
+      this.isPromotionModalVisible = false
+    }
+  },
+  mounted () {
+    if (!isNaN(Number(localStorage.resized))) {
+      this.enlarged = Number(localStorage.resized)
+    }
+    if (!isNaN(Number(localStorage.resized9x9width))) {
+      this.enlarged9x9width = Number(localStorage.resized9x9width)
+      this.enlarged9x9height = Number(localStorage.resized9x9height)
+    }
+    if (!isNaN(Number(localStorage.resized9x10width))) {
+      this.enlarged9x10width = Number(localStorage.resized9x10width)
+      this.enlarged9x10height = Number(localStorage.resized9x10height)
+    }
+    window.addEventListener('mouseup', this.stopDragging)
+    window.addEventListener('mousemove', this.doResize)
+    window.addEventListener('wheel', this.reRender)
+    window.addEventListener('mouseup', this.reRender)
+
+    this.board = markRaw(Chessground(this.$refs.board, {
+      coordinates: true,
+      fen: this.fen,
+      turnColor: 'white',
+      resizable: true,
+      highlight: {
+        lastMove: true, // add last-move class to squares
+        check: true // add check class to squares
+      },
+      drawable: {
+        enabled: true, // can draw
+        visible: true, // can view
+        eraseOnClick: false
+      },
+      movable: {
+        events: { after: this.changeTurn(), afterNewPiece: this.afterDrag() },
+        color: 'white',
+        free: false,
+        rookCastle: true
+      },
+      premovable: {
+        enabled: false
+      },
+      events: {
+        select: () => this.removeFocusFromInputs(),
+        move: () => this.removeFocusFromInputs()
+      },
+      orientation: this.orientation,
+      geometry: this.dimensionNumber
+    }))
+
+    // inject stylesheet placeholders into head
+    this.boardStyleEl = document.createElement('link')
+    this.boardStyleEl.rel = 'stylesheet'
+    this.pieceStyleEl = document.createElement('link')
+    this.pieceStyleEl.rel = 'stylesheet'
+    document.head.appendChild(this.boardStyleEl)
+    document.head.appendChild(this.pieceStyleEl)
+    // set initial styles
+    this.updateBoardCSS(this.boardStyle)
+    this.updatePieceCSS(this.pieceStyle)
+    // force initial resize
+    document.body.dispatchEvent(new Event('chessground.resize'))
+    const boardSize = this.$refs.board
+    if (Number(localStorage.dimNumber) === 0) {
+      boardSize.style.width = 600 + this.enlarged + 'px'
+      boardSize.style.height = 600 + this.enlarged + 'px'
+      this.startingPoint = this.enlarged
+    }
+    document.body.dispatchEvent(new Event('chessground.resize'))
+  },
+  beforeUnmount () {
+    window.removeEventListener('mouseup', this.stopDragging)
+    window.removeEventListener('mousemove', this.doResize)
+    window.removeEventListener('wheel', this.reRender)
+    window.removeEventListener('mouseup', this.reRender)
+    if (this.board) this.board.destroy()
+    if (this.boardStyleEl) this.boardStyleEl.remove()
+    if (this.pieceStyleEl) this.pieceStyleEl.remove()
+  },
+  methods: {
+    updateEngineShapes () {
+      // Don't draw engine arrows during PvE or EvE modes
+      if (this.PvE || this.EvE) {
+        this.shapes = []
+        this.pieceShapes = []
+        this.drawShapes()
+        return
+      }
+
       const multipv = this.multipv
       const shapes = []
       const pieceShapes = []
-      if (this.hoveredpv >= 0) {
+      if (this.hoveredpv >= 0 && this.multipv[this.hoveredpv] && this.multipv[this.hoveredpv].pvUCI) {
         const moves = this.multipv[this.hoveredpv].pvUCI.split(' ')
         const brushes = ['red', 'green']
         let brushIdx = 0
@@ -332,139 +494,12 @@ export default {
       this.shapes = shapes
       this.drawShapes()
     },
-    hoveredpv () {
-      /*
-      const index = this.shapes.length - this.hoveredpv - 1
-      for (const [i, shape] of this.shapes.entries()) {
-        shape.brush = i === index ? 'blue' : 'paleBlue'
-        if (i === this.shapes.length - 1) {
-          this.shapes[this.shapes.length - 1].brush = 'yellow'
-        }
-      }
-      */
-    },
-    variant () {
-      if (this.variant === 'shogi') {
-        this.piecesW = this.shogiPiecesW
-        this.piecesB = this.shogiPiecesB
-      }
-      if (this.variant === 'crazyhouse') {
-        this.piecesW = this.chessPiecesW
-        this.piecesB = this.chessPiecesB
-      }
-      this.resetPockets(this.piecesW)
-      this.resetPockets(this.piecesB)
-      if (this.board.state.geometry !== this.dimensionNumber) {
-        this.board = Chessground(this.$refs.board, {
-          coordinates: false,
-          fen: this.fen,
-          turnColor: 'white',
-          resizable: true,
-          highlight: {
-            lastMove: true, // add last-move class to squares
-            check: false // add check class to squares
-          },
-          drawable: {
-            enabled: true, // can draw
-            visible: true, // can view
-            eraseOnClick: false
-          },
-          movable: {
-            events: { after: this.changeTurn(), afterNewPiece: this.afterDrag() },
-            color: 'white',
-            free: false
-          },
-          orientation: this.orientation,
-          geometry: this.$store.getters.dimensionNumber
-        })
-
-        document.body.dispatchEvent(new Event('chessground.resize'))
-      }
-      if (this.variant === 'crazyhouse' || this.variant === 'shogi') {
-        document.body.dispatchEvent(new Event('chessground.resize'))
-      }
-      this.board.set({
-        variant: this.variant,
-        lastMove: false
-      })
-      this.updateBoard()
-      this.isPromotionModalVisible = false
-    }
-  },
-  mounted () {
-    if (!isNaN(Number(localStorage.resized))) {
-      this.enlarged = Number(localStorage.resized)
-    }
-    if (!isNaN(Number(localStorage.resized9x9width))) {
-      this.enlarged9x9width = Number(localStorage.resized9x9width)
-      this.enlarged9x9height = Number(localStorage.resized9x9height)
-    }
-    if (!isNaN(Number(localStorage.resized9x10width))) {
-      this.enlarged9x10width = Number(localStorage.resized9x10width)
-      this.enlarged9x10height = Number(localStorage.resized9x10height)
-    }
-    window.addEventListener('mouseup', this.stopDragging)
-    window.addEventListener('mousemove', this.doResize)
-    window.addEventListener('wheel', this.reRender)
-    window.addEventListener('mouseup', this.reRender)
-
-    this.board = Chessground(this.$refs.board, {
-      coordinates: false,
-      fen: this.fen,
-      turnColor: 'white',
-      resizable: true,
-      highlight: {
-        lastMove: true, // add last-move class to squares
-        check: true // add check class to squares
-      },
-      drawable: {
-        enabled: true, // can draw
-        visible: true, // can view
-        eraseOnClick: false
-      },
-      movable: {
-        events: { after: this.changeTurn(), afterNewPiece: this.afterDrag() },
-        color: 'white',
-        free: false,
-        rookCastle: true
-      },
-      premovable: {
-        enabled: false
-      },
-      events: {
-        select: () => this.removeFocusFromInputs(),
-        move: () => this.removeFocusFromInputs()
-      },
-      orientation: this.orientation
-    })
-
-    // inject stylesheet placeholders into head
-    this.boardStyleEl = document.createElement('link')
-    this.boardStyleEl.rel = 'stylesheet'
-    this.pieceStyleEl = document.createElement('link')
-    this.pieceStyleEl.rel = 'stylesheet'
-    document.head.appendChild(this.boardStyleEl)
-    document.head.appendChild(this.pieceStyleEl)
-    // set initial styles
-    this.updateBoardCSS(this.boardStyle)
-    this.updatePieceCSS(this.pieceStyle)
-    // force initial resize
-    document.body.dispatchEvent(new Event('chessground.resize'))
-    const boardSize = document.querySelector('.cg-wrap')
-    if (Number(localStorage.dimNumber) === 0) {
-      boardSize.style.width = 600 + this.enlarged + 'px'
-      boardSize.style.height = 600 + this.enlarged + 'px'
-      this.startingPoint = this.enlarged
-    }
-    document.body.dispatchEvent(new Event('chessground.resize'))
-  },
-  methods: {
     closeCursorHand () {
-      const board = document.querySelector('.cg-wrap')
+      const board = this.$refs.board
       board.style.cursor = 'grabbing'
     },
     openCursorHand () {
-      const board = document.querySelector('.cg-wrap')
+      const board = this.$refs.board
       board.style.cursor = 'grab'
     },
     reRender (event) {
@@ -472,22 +507,22 @@ export default {
     },
     hideShade () {
       if (this.dragging === false) {
-        document.querySelector('.resizer').style.opacity = 0.0
+        this.$el.querySelector('.resizer').style.opacity = 0.0
       }
     },
     shade () {
-      document.querySelector('.resizer').style.opacity = 0.8
+      this.$el.querySelector('.resizer').style.opacity = 0.8
     },
     stopDragging () {
-      document.querySelector('.resizer').style.opacity = 0.0
+      this.$el.querySelector('.resizer').style.opacity = 0.0
       this.dragging = false
     },
     startDragging () {
       this.dragging = true
-      document.querySelector('.resizer').style.opacity = 0.8
+      this.$el.querySelector('.resizer').style.opacity = 0.8
     },
     doResize (event) {
-      const boardSize = document.querySelector('.cg-wrap')
+      const boardSize = this.$refs.board
       if (this.dragging === false) {
         return
       }
@@ -557,7 +592,7 @@ export default {
       this.$store.dispatch('setResized9x10width', this.enlarged9x10width)
     },
     resize (event) {
-      const boardSize = document.querySelector('.cg-wrap')
+      const boardSize = this.$refs.board
       if (event.deltaY > 0) {
         switch (this.dimensionNumber) {
           case 0:
@@ -641,26 +676,28 @@ export default {
     },
     updatePieceCSS (pieceStyle) {
       const node = this.pieceStyleEl
+      if (!node) return
       if (this.$store.getters.isInternational) {
-        node.href = '../../../../static/piece-css/international/' + pieceStyle + '.css'
+        node.href = 'static/piece-css/international/' + pieceStyle + '.css'
       } else if (this.$store.getters.isSEA) {
-        node.href = '../../../../static/piece-css/sea/' + pieceStyle + '.css'
+        node.href = 'static/piece-css/sea/' + pieceStyle + '.css'
       } else if (this.$store.getters.isXiangqi || this.$store.getters.isJanggi) {
-        node.href = '../../../../static/piece-css/xiangqi/' + pieceStyle + '.css'
+        node.href = 'static/piece-css/xiangqi/' + pieceStyle + '.css'
       } else if (this.$store.getters.isShogi) {
-        node.href = '../../../../static/piece-css/shogi/' + pieceStyle + '.css'
+        node.href = 'static/piece-css/shogi/' + pieceStyle + '.css'
       }
     },
     updateBoardCSS (boardStyle) {
       const node = this.boardStyleEl
+      if (!node) return
       if (this.$store.getters.isInternational) {
-        node.href = '../../../../static/board-css/international/' + boardStyle + '.css'
+        node.href = 'static/board-css/international/' + boardStyle + '.css'
       } else if (this.$store.getters.isXiangqi || this.$store.getters.isJanggi) {
-        node.href = '../../../../static/board-css/xiangqi/' + this.variant + '/' + boardStyle + '.css'
+        node.href = 'static/board-css/xiangqi/' + this.variant + '/' + boardStyle + '.css'
       } else if (this.$store.getters.isSEA) {
-        node.href = '../../../../static/board-css/sea/' + boardStyle + '.css'
+        node.href = 'static/board-css/sea/' + boardStyle + '.css'
       } else if (this.$store.getters.isShogi) {
-        node.href = '../../../../static/board-css/shogi/' + boardStyle + '.css'
+        node.href = 'static/board-css/shogi/' + boardStyle + '.css'
       }
       document.body.dispatchEvent(new Event('chessground.resize'))
     },
@@ -896,6 +933,7 @@ export default {
       this.$store.dispatch('lastFen', this.fen)
     },
     updateBoard () {
+      if (!this.board) return
       // logic to find out if a check should be displayed:
       let isCheck = false // ensures that no check is displayed when the current move was not a check
       if (this.currentMove !== undefined && (this.currentMove.name.includes('+') || this.currentMove.name.includes('#'))) { // the last move was check iff the san notation of the last move contained a '+'
@@ -928,8 +966,8 @@ export default {
           lastMove: true,
           check: true
         },
-        movable: this.fen === this.lastFen || this.analysisMode
-          ? { // moving is possible at the end of the line and in analysis mode
+        movable: (this.fen === this.lastFen || this.analysisMode)
+          ? {
               dests: this.possibleMoves(),
               color: this.turn
             }
@@ -964,8 +1002,8 @@ export default {
 @import '../assets/dim9x10.css';
 
 .resizer{
-  padding-left: 15px;
-  padding-top: 15px;
+  padding-left: 5px;
+  padding-top: 5px;
   position: absolute;
   width: 10px;
   height: 10px;
@@ -1005,42 +1043,8 @@ export default {
   grid-template-columns: 1fr 1fr ;
 
 }
-coords.ranks {
-  height: 100%;
-  width: .8em;
-  margin-bottom: 10px;
-}
-coords.files {
-  height: 100%;
-  width: .8em;
-  width: 10px;
-  padding-left: 30px;
-  margin-right: 10px;
-}
-coords {
-  text-shadow: var(--cg-coord-shadow);
-  font-size: calc(8px + 4 * ((100vw - 320px) / 880));
-  display: flex;
-  color: var(--light-text-color);
-  text-shadow: 0 1px 2px #000;
-  font-weight: bold;
-}
-.coords {
-  margin-right: 1.5px;
-  text-align: center;
-  font-size: 8px;
-  width: 10px;
-  padding: 0px 0px 0px 0px;
-  color: black;
-}
 .cg-board-wrap {
   position: relative;
-}
-.rotate180 {
-  transform: rotate(180deg);
-}
-.orientation-black {
-  transform: rotate(-180deg);
 }
 .koth cg-container::before {
   width: 25%;

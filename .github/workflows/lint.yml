@@ -2,16 +2,20 @@ name: Lint
 
 on:
   pull_request:
+  push:
     branches:
-      - master
+      - vue3
+      - codex/0.6.0-vue3
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '12.x'
-      - run: npm ci
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
       - run: npm run lint
+      - run: npm run pack

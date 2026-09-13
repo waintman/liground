@@ -26,6 +26,7 @@ export default {
       ])
     }
   },
+  emits: ['close'],
   data () {
     return {
       promDir: { 'q-piece': 'q', 'r-piece': 'r', 'b-piece': 'b', 'n-piece': 'n', 'p-piece': 'p', 'k-piece': 'k' },

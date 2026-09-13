@@ -2,16 +2,13 @@
   <div>
     <Multiselect
       class="multiselect"
-      :modelValue="displayStyle"
+      :model-value="displayStyle"
       :options="boardStyles"
       :allow-empty="false"
       :show-labels="false"
-      @update:modelValue="updateBoardStyle"
+      @update:model-value="updateBoardStyle"
     >
-      <template
-        slot="option"
-        slot-scope="props"
-      >
+      <template #option="props">
         <div class="item">
           <div class="preview">
             <div
@@ -52,10 +49,7 @@
             </button></span>
         </div>
       </template>
-      <template
-        slot="singleLabel"
-        slot-scope="props"
-      >
+      <template #singleLabel="props">
         <div class="item">
           <div class="preview">
             <div
@@ -332,7 +326,7 @@ export default {
         }
         board = conv[name]
       }
-      return `url(../../../../static/board/svg/${board}.svg`
+      return `url("static/board/svg/${board}.svg")`
     },
     async reWriteSvgs (counter) {
       const svgFile = await this.addCustom(counter)
@@ -505,7 +499,17 @@ export default {
         alert("You can't add more than 5 Custom Designs")
         return
       }
-      return await ipcRenderer.invoke('selectSVG')
+      try {
+        const res = await ipcRenderer.invoke('show-open-dialog', {
+          title: 'Choose Custom Board Style',
+          properties: ['openFile'],
+          filters: [{ name: 'SVG Files', extensions: ['svg'] }]
+        })
+        return res
+      } catch (err) {
+        console.log(err)
+        return { canceled: true }
+      }
     },
     updateBoardStyle (payload) {
       if (payload === 'Add Custom') {

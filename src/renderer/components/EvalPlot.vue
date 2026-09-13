@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import VueApexCharts from 'vue-apexcharts'
+import VueApexCharts from 'vue3-apexcharts'
 import { mapGetters } from 'vuex'
 import { engine } from '../engine'
 

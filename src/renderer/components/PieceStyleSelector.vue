@@ -2,16 +2,13 @@
   <div>
     <Multiselect
       class="multiselect"
-      :modelValue="displayPieceStyle"
+      :model-value="displayPieceStyle"
       :options="pieceStyles"
       :allow-empty="false"
       :show-labels="false"
-      @update:modelValue="updatePieceStyle"
+      @update:model-value="updatePieceStyle"
     >
-      <template
-        slot="option"
-        slot-scope="props"
-      >
+      <template #option="props">
         <div class="item">
           <div class="preview">
             <div
@@ -26,10 +23,7 @@
           <span class="name">{{ props.option }}</span>
         </div>
       </template>
-      <template
-        slot="singleLabel"
-        slot-scope="props"
-      >
+      <template #singleLabel="props">
         <div class="item">
           <div class="preview">
             <div

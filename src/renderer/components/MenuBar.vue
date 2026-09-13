@@ -72,11 +72,24 @@ export default {
     changeTab () {
       this.$store.commit('viewAnalysis', !this.viewAnalysis)
     },
-    openPgn () { // TODO: seperate the openPgn Funktions from here and AddPgnModal and import instead
-      ipcRenderer.invoke('openPGN').then((result) => {
-        localStorage.PGNPath = JSON.stringify(result.filePaths[0])
-        this.openPGNFromPath(result.filePaths[0])
-      })
+    async openPgn () { // TODO: seperate the openPgn Funktions from here and AddPgnModal and import instead
+      try {
+        const res = await ipcRenderer.invoke('show-open-dialog', {
+          title: 'Open PGN file',
+          properties: ['openFile'],
+          filters: [
+            { name: 'PGN Files', extensions: ['pgn'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        })
+        const file = Array.isArray(res && res.filePaths) ? res.filePaths[0] : undefined
+        if (file) {
+          localStorage.PGNPath = JSON.stringify(file)
+          this.openPGNFromPath(file)
+        }
+      } catch (err) {
+        console.log(err)
+      }
     },
     openPGNFromPath (path) {
       fs.readFile(path, 'utf8', (err, data) => {
@@ -112,6 +125,8 @@ export default {
             return
           }
           currentGameCount++
+          // Store the original PGN text for comment extraction
+          game.originalPGN = match
           games.push(game)
         })
       }

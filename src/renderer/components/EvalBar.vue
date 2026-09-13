@@ -1,12 +1,31 @@
 <template>
   <div
-    class="progress"
-    :class="{ flip : orientation === 'black' }"
+    class="eval-bars"
+    :class="{ flip: orientation === 'black' }"
   >
+    <div class="progress">
+      <div
+        class="progress-value"
+        :style="{ height: `${100 - cpForWhitePerc * 100}%` }"
+      />
+    </div>
     <div
-      class="progress-value"
-      :style="{ height: `${100 - cpForWhitePerc * 100}%` }"
-    />
+      v-if="hasWdlData"
+      class="wdl"
+    >
+      <div
+        class="wdl-seg wdl-win"
+        :style="{ height: `${wdlWinPct}%` }"
+      />
+      <div
+        class="wdl-seg wdl-draw"
+        :style="{ height: `${wdlDrawPct}%` }"
+      />
+      <div
+        class="wdl-seg wdl-loss"
+        :style="{ height: `${wdlLossPct}%` }"
+      />
+    </div>
   </div>
 </template>
 
@@ -16,18 +35,39 @@ import { mapGetters } from 'vuex'
 export default {
   name: 'EvalBar',
   computed: {
-    ...mapGetters(['orientation', 'cpForWhitePerc'])
+    ...mapGetters(['orientation', 'cpForWhitePerc', 'cpForWhite', 'wdlForWhiteWinPct', 'wdlForWhiteDrawPct', 'wdlForWhiteLossPct', 'currentMove']),
+    wdlWinPct () {
+      return this.wdlForWhiteWinPct ?? 0
+    },
+    wdlDrawPct () {
+      return this.wdlForWhiteDrawPct ?? 0
+    },
+    wdlLossPct () {
+      return this.wdlForWhiteLossPct ?? 0
+    },
+    hasWdlData () {
+      const uciShowWdl = this.$store.state.engineSettings.UCI_ShowWDL
+      return uciShowWdl === true &&
+        this.wdlForWhiteWinPct !== null &&
+        this.wdlForWhiteDrawPct !== null &&
+        this.wdlForWhiteLossPct !== null
+    }
   }
 }
 </script>
 
 <style scoped>
+.eval-bars {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
 .progress {
   position: relative;
-  width: 17px;
+  width: 22px;
   height: 600px;
-  background: var(--light-text-color);;
-  border: 1px solid #888;
+  background: var(--second-bg-color);
+  border: 1px solid var(--main-border-color);
   border-radius: 5px;
   overflow: hidden;
 }
@@ -49,7 +89,26 @@ export default {
 .progress-value {
   width: 100%;
   height: 50%;
-  background: #111;
+  background: var(--main-text-color);
   transition: height .25s ease;
 }
+
+.wdl {
+  width: 22px;
+  height: 600px;
+  border: 1px solid var(--main-border-color);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--second-bg-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.wdl-seg {
+  width: 100%;
+  transition: height .25s ease;
+}
+.wdl-win { background: #4caf50; }
+.wdl-draw { background: #5f5e5c; }
+.wdl-loss { background: #e84c3d; }
 </style>

@@ -30,6 +30,7 @@ import defaultLogo from '../assets/images/engines/chess_engine.svg'
 export default {
   name: 'EngineSelect',
   components: { Multiselect },
+  emits: ['sendSelected'],
   data () {
     return {
       selected: null,

@@ -1,12 +1,13 @@
 {
   "name": "liground",
-  "version": "0.4.0",
+  "version": "0.6.0",
   "author": "Johannes Czech (johannes.czech@cs.tu-darmstadt.de)",
   "description": "A mordern Chess Variant Analysis GUI for the 21st century",
   "license": "AGPL-3.0",
   "main": "./dist/electron/main.js",
   "scripts": {
-    "build": "node scripts/build.js && electron-builder",
+    "build:openings": "node tools/build-openings-json.mjs",
+    "build": "npm run build:openings && node scripts/build.js && electron-builder",
     "build:dir": "node scripts/build.js && electron-builder --dir",
     "build:clean": "cross-env BUILD_TARGET=clean node scripts/build.js",
     "build:web": "cross-env BUILD_TARGET=web node scripts/build.js",
@@ -16,7 +17,8 @@
     "pack": "npm run pack:main && npm run pack:renderer",
     "pack:main": "cross-env NODE_ENV=production webpack --progress --config webpack/main.config.js",
     "pack:renderer": "cross-env NODE_ENV=production webpack --progress --config webpack/renderer.config.js",
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js && electron-rebuild -f -w better-sqlite3",
+    "test:smoke": "electron scripts/smoke-test.cjs"
   },
   "dependencies": {
     "@imengyu/vue3-context-menu": "^1.4.8",
@@ -26,17 +28,17 @@
     "ffish": "^0.7.7",
     "pretty-checkbox": "^3.0.3",
     "vue": "^3.5.13",
-    "vue-apexcharts": "^1.6.0",
-    "vue-electron": "^1.0.6",
     "vue-multiselect": "^3.2.0",
     "vue-router": "^4.5.1",
     "vuex": "^4.1.0",
-    "vuex-electron": "^1.0.0"
+    "@babel/runtime": "^7.28.4",
+    "better-sqlite3": "^12.6.0",
+    "vue3-apexcharts": "1.5.3"
   },
   "devDependencies": {
     "@babel/core": "^7.12.10",
     "@babel/eslint-parser": "^7.12.1",
-    "@babel/plugin-transform-runtime": "^7.12.10",
+    "@babel/plugin-transform-runtime": "^7.28.3",
     "@babel/preset-env": "^7.12.11",
     "@babel/register": "^7.12.10",
     "ajv": "^6.5.0",
@@ -70,13 +72,17 @@
     "vue-eslint-parser": "^7.4.1",
     "vue-loader": "^17.4.2",
     "vue-style-loader": "^4.1.0",
-    "vue-template-compiler": "^2.6.12",
     "webpack": "^5.98.0",
-    "webpack-cli": "^4.4.0",
+    "webpack-cli": "^4.9.1",
     "webpack-dev-middleware": "^4.1.0",
     "webpack-dev-server": "^5.2.1",
     "webpack-hot-middleware": "^2.26.1",
     "webpack-merge": "^5.7.0",
-    "worker-loader": "^3.0.7"
+    "worker-loader": "^3.0.7",
+    "@vue/compiler-sfc": "^3.5.13",
+    "@electron/rebuild": "^3.7.2"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

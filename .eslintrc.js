@@ -12,7 +12,7 @@ module.exports = {
   extends: [
     'eslint:recommended',
     'standard',
-    'plugin:vue/recommended'
+    'plugin:vue/vue3-recommended'
   ],
   globals: {
     __static: true

@@ -1,10 +1,20 @@
 import { createStore } from 'vuex'
 import ffish from 'ffish'
-import { engine } from './engine'
+import { engine, Engine } from './engine'
 import allEngines from './store/engines'
-import { markRaw } from 'vue'
+import { markRaw, toRaw } from 'vue'
 import moveAudio from './assets/audio/Move.mp3'
 import captureAudio from './assets/audio/Capture.mp3'
+
+let ipcRenderer
+try {
+  ipcRenderer = (typeof window !== 'undefined' && window.require) ? window.require('electron').ipcRenderer : require('electron').ipcRenderer
+} catch (err) {
+  ipcRenderer = null
+}
+
+const MIN_CACHE_DEPTH = 20
+let lastCacheKey = null
 
 class TwoWayMap {
   constructor (map) {
@@ -49,6 +59,50 @@ function cpToString (cp) {
   } else {
     return normalizedEval
   }
+}
+
+/**
+ * Normalize WDL information into fractional values.
+ * Accepts either {wdlWin, wdlDraw, wdlLoss} or wdl array [w, d, l].
+ * @param {any} mv Multipv line or payload
+ * @returns {{win: number, draw: number, loss: number} | null}
+ */
+function normalizeWdl (mv) {
+  if (!mv) return null
+  const hasRatios = mv.wdlWin !== undefined || mv.wdlDraw !== undefined || mv.wdlLoss !== undefined
+  if (hasRatios) {
+    const win = Number(mv.wdlWin)
+    const draw = Number(mv.wdlDraw)
+    const loss = Number(mv.wdlLoss)
+    if (Number.isFinite(win) && Number.isFinite(draw) && Number.isFinite(loss)) {
+      return { win, draw, loss }
+    }
+  }
+  if (Array.isArray(mv.wdl) && mv.wdl.length >= 3) {
+    const win = Number(mv.wdl[0])
+    const draw = Number(mv.wdl[1])
+    const loss = Number(mv.wdl[2])
+    const sum = win + draw + loss
+    if (Number.isFinite(sum) && sum > 0) {
+      return { win: win / sum, draw: draw / sum, loss: loss / sum }
+    }
+  }
+  return null
+}
+
+/**
+ * Strip halfmove/fullmove counters from a FEN string for caching.
+ * @param {string} fen Full FEN string
+ */
+function normalizeFen (fen) {
+  if (typeof fen !== 'string') {
+    return ''
+  }
+  const parts = fen.trim().split(/\s+/)
+  if (parts.length >= 6) {
+    return parts.slice(0, parts.length - 2).join(' ')
+  }
+  return parts.join(' ')
 }
 
 /**
@@ -100,6 +154,60 @@ function checkOption (options, name, value) {
 
 const filteredSettings = ['UCI_Variant', 'UCI_Chess960']
 
+/**
+ * Extract comments from PGN text
+ * Parses PGN format comments like {this is a comment} and maps them to move indices
+ * @param {string} pgnText The full PGN text
+ * @returns {Object} Map of move index to comment text
+ */
+function extractCommentsFromPGN (pgnText) {
+  const commentMap = {}
+  // Skip header section and get moves section
+  const headerEndIndex = pgnText.indexOf('\n\n')
+  if (headerEndIndex === -1) {
+    return commentMap
+  }
+  const movesSection = pgnText.substring(headerEndIndex + 2)
+  // Split moves section into tokens
+  const tokens = movesSection.split(/(\{[^}]*\}|\S+)/g).filter(t => t && t.trim())
+  let moveIndex = 0
+  let lastWasMove = false
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]
+    // Skip move numbers and empty tokens
+    if (token.match(/^\d+\.\.?$/) || !token.trim() || token === '*') {
+      continue
+    }
+    // Check if this is a comment
+    if (token.match(/^\{[^}]*\}$/)) {
+      // Extract comment text without braces
+      const commentText = token.replace(/^\{/, '').replace(/\}$/, '')
+      // Associate comment with the current move (just played)
+      if (lastWasMove) {
+        commentMap[moveIndex - 1] = commentText
+        lastWasMove = false
+      }
+    } else if (token.trim()) {
+      // This is a move
+      moveIndex++
+      lastWasMove = true
+    }
+  }
+  return commentMap
+}
+/* Helper to produce a `go` command from limiter configuration
+** @param {Object} limiter Limiter configuration
+*/
+function limiterToGo (limiter) {
+  if (!limiter || !limiter.enabled) return 'go movetime 1000'
+  switch (limiter.type) {
+    case 'time': return `go movetime ${parseInt(limiter.value, 10)}`
+    case 'nodes': return `go nodes ${parseInt(limiter.value, 10) * 1000000}`
+    case 'depth': return `go depth ${parseInt(limiter.value, 10)}`
+    default: return `go movetime ${parseInt(limiter.value, 10) || 1000}`
+  }
+}
+
 export const store = createStore({
   state () {
     return {
@@ -108,9 +216,12 @@ export const store = createStore({
       initialized: false,
       active: false,
       PvE: false,
+      PvEPlayerIsWhite: true, // true when the human player controls White in PvE mode
       PvEParam: 'go movetime 1000',
       PvEValue: 'time',
       PvEInput: 1000,
+      PvELimiter: null, // stores the limiter config for the PvE engine
+      PvEEngineInstance: null,
       resized: 0,
       resized9x9height: 0,
       resized9x9width: 0,
@@ -119,6 +230,7 @@ export const store = createStore({
       dimNumber: 0,
       turn: true,
       fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      normalizedFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -',
       lastFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // to track the end of the current line
       startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       moves: [],
@@ -127,6 +239,28 @@ export const store = createStore({
       legalMoves: '',
       destinations: {},
       variant: 'chess',
+      gameConfig: null,
+      startGameModal: {
+        whiteChoice: 'player',
+        blackChoice: 'engine',
+        selectedGameMode: 'chess',
+        whiteEngineName: null,
+        blackEngineName: null,
+        whiteLimiterEnabled: true,
+        whiteLimiterType: 'time',
+        whiteLimiterValue: 1000,
+        blackLimiterEnabled: true,
+        blackLimiterType: 'time',
+        blackLimiterValue: 1000,
+        showEndGameModal: true
+      },
+      showGameEndModal: false,
+      gameResult: null,
+      // Engine-vs-Engine state
+      EvE: false,
+      EvEConfig: null,
+      engineWhiteInstance: null,
+      engineBlackInstance: null,
       variantOptions: new TwoWayMap({ // all the currently supported options are listed here, variantOptions.get returns the right side, variantOptions.revGet returns the left side of the dict
         Standard: 'chess',
         Crazyhouse: 'crazyhouse',
@@ -161,6 +295,8 @@ export const store = createStore({
       listOfEngineStats: [],
       engineStats: {
         depth: 0,
+        isEvalCached: false,
+        cachedDepth: -1,
         seldepth: 0,
         nodes: 0,
         nps: 0,
@@ -169,6 +305,9 @@ export const store = createStore({
         time: 0
       },
       enginetime: 0,
+      lastWdlWin: null,
+      lastWdlDraw: null,
+      lastWdlLoss: null,
       multipv: [
         {
           cp: 0,
@@ -200,7 +339,7 @@ export const store = createStore({
       muteButton: false,
       fenply: 1,
       internationalVariants: [
-        '+ Add Custom', 'chess', 'crazyhouse', 'horde', 'kingofthehill', '3check', 'racingkings', 'antichess', 'atomic'
+        '+ Add Custom', 'chess', 'crazyhouse', 'horde', 'kingofthehill', '3check', 'racingkings', 'antichess', 'atomic', 'fischerandom'
       ],
       seaVariants: [
         '+ Add Custom', 'makruk'
@@ -230,6 +369,7 @@ export const store = createStore({
     },
     fen (state, payload) {
       state.fen = payload
+      state.normalizedFen = normalizeFen(payload)
     },
     engineIndex (state, payload) {
       state.engineIndex = payload
@@ -273,6 +413,12 @@ export const store = createStore({
     PvE (state, payload) {
       state.PvE = payload
     },
+    PvEPlayerIsWhite (state, payload) {
+      state.PvEPlayerIsWhite = payload
+    },
+    PvEEngineInstance (state, payload) {
+      state.PvEEngineInstance = payload ? markRaw(toRaw(payload)) : null
+    },
     PvEParam (state, payload) {
       state.PvEParam = payload
     },
@@ -281,6 +427,34 @@ export const store = createStore({
     },
     PvEInput (state, payload) {
       state.PvEInput = payload
+    },
+    PvELimiter (state, payload) {
+      state.PvELimiter = payload
+    },
+    // EvE mutations
+    EvE (state, payload) {
+      state.EvE = payload
+    },
+    EvEConfig (state, payload) {
+      state.EvEConfig = payload
+    },
+    engineWhiteInstance (state, payload) {
+      state.engineWhiteInstance = payload ? markRaw(toRaw(payload)) : null
+    },
+    engineBlackInstance (state, payload) {
+      state.engineBlackInstance = payload ? markRaw(toRaw(payload)) : null
+    },
+    gameConfig (state, payload) {
+      state.gameConfig = payload
+    },
+    startGameModal (state, payload) {
+      state.startGameModal = Object.assign({}, state.startGameModal || {}, payload)
+    },
+    showGameEndModal (state, payload) {
+      state.showGameEndModal = payload
+    },
+    gameResult (state, payload) {
+      state.gameResult = payload
     },
     quicktourIndexIncr (state) {
       state.QuickTourIndex++
@@ -360,8 +534,15 @@ export const store = createStore({
         nps: 0,
         hashfull: 0,
         tbhits: 0,
-        time: 0
+        time: 0,
+        isEvalCached: false,
+        cachedDepth: -1
       }
+    },
+    resetWdlCache (state) {
+      state.lastWdlWin = null
+      state.lastWdlDraw = null
+      state.lastWdlLoss = null
     },
     multipv (state, payload) {
       for (const pvline of payload) {
@@ -370,6 +551,12 @@ export const store = createStore({
         }
       }
       state.multipv = payload
+      const wdl = normalizeWdl(payload[0])
+      if (wdl) {
+        state.lastWdlWin = state.turn ? wdl.win : wdl.loss
+        state.lastWdlDraw = wdl.draw
+        state.lastWdlLoss = state.turn ? wdl.loss : wdl.win
+      }
     },
     hoveredpv (state, payload) {
       state.hoveredpv = payload
@@ -420,6 +607,7 @@ export const store = createStore({
       state.selectedGame = null
       state.fenply = 1
       this.commit('resetEngineStats')
+      state.normalizedFen = normalizeFen(state.fen)
     },
     resetBoard (state, payload) {
       if (!payload.is960) {
@@ -453,7 +641,12 @@ export const store = createStore({
           const sanMove = state.board.sanMove(curVal)
           state.board.push(curVal)
           this.commit('playAudio', sanMove)
-          return { ply: ply, name: sanMove, fen: state.board.fen(), uci: curVal, whitePocket: state.board.pocket(true), blackPocket: state.board.pocket(false), main: undefined, next: [], prev: prev }
+          const moveObj = { ply: ply, name: sanMove, fen: state.board.fen(), uci: curVal, whitePocket: state.board.pocket(true), blackPocket: state.board.pocket(false), main: undefined, next: [], prev: prev }
+          // Add comment if provided (only for the first move in the sequence)
+          if (idx === 0 && payload.comment) {
+            moveObj.comment = payload.comment
+          }
+          return moveObj
         }))
         if (payload.prev) { // if the move is not a starting move
           prev.next.push(state.moves[state.moves.length - 1]) // the last entry in moves is the move object of the current move
@@ -487,14 +680,14 @@ export const store = createStore({
       state.gameInfo = payload
     },
     loadedGames (state, payload) {
-      state.loadedGames = payload
+      state.loadedGames = payload.map(game => markRaw(toRaw(game)))
       state.selectedGame = null
     },
     rounds (state, payload) {
       state.rounds = payload
     },
     selectedGame (state, payload) {
-      state.selectedGame = payload
+      state.selectedGame = payload ? markRaw(toRaw(payload)) : null
     },
     analysisMode (state, payload) {
       state.analysisMode = payload
@@ -541,6 +734,90 @@ export const store = createStore({
       localStorage.resized9x10width = state.resized9x10width
       localStorage.resized9x10height = state.resized9x10height
       localStorage.dimNumber = state.dimNumber
+    },
+
+    // mutation to reset settings back to defaults
+    resetAllSettings (state) {
+      const defaults = {
+        engineIndex: 1,
+        enginesActive: [false],
+        PvE: false,
+        PvEParam: 'go movetime 1000',
+        PvEValue: 'time',
+        PvEInput: 1000,
+        resized: 0,
+        resized9x9height: 0,
+        resized9x9width: 0,
+        resized9x10height: 0,
+        resized9x10width: 0,
+        dimNumber: 0,
+        turn: true,
+        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        normalizedFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -',
+        lastFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        startFen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        moves: [],
+        firstMoves: [],
+        mainFirstMove: null,
+        legalMoves: '',
+        destinations: {},
+        variant: 'chess',
+        viewAnalysis: true,
+        analysisMode: true,
+        darkMode: false,
+        muteButton: false,
+        pieceStyle: 'cburnett',
+        boardStyle: 'blue',
+        curVar960Fen: '',
+        startGameModal: {
+          whiteChoice: 'player',
+          blackChoice: 'engine',
+          selectedGameMode: 'chess',
+          whiteEngineName: null,
+          blackEngineName: null,
+          whiteLimiterEnabled: true,
+          whiteLimiterType: 'time',
+          whiteLimiterValue: 1000,
+          blackLimiterEnabled: true,
+          blackLimiterType: 'time',
+          blackLimiterValue: 1000,
+          showEndGameModal: true
+        },
+        openedPGN: false,
+        QuickTourIndex: 0,
+        evalPlotDepth: 20,
+        fenply: 1,
+        engineInfo: {
+          name: '',
+          author: '',
+          options: []
+        },
+        engineSettings: {},
+        multipv: [
+          {
+            cp: 0,
+            pv: '',
+            ucimove: ''
+          }
+        ],
+        numberOfEngines: [{ number: 1 }],
+        engineCounter: 1,
+        selectedEngines: {},
+        loadedGames: [],
+        rounds: null,
+        selectedGame: null,
+        allEngines: allEngines,
+        activeEngine: null,
+        active: false
+      }
+
+      // assign defaults onto state
+      Object.keys(defaults).forEach(key => {
+        // preserve reactive properties by setting individual keys
+        state[key] = defaults[key]
+      })
+
+      // board instance is replaced by the action (commit('newBoard')), avoid mutating external objects here
     }
   },
   actions: { // async
@@ -602,7 +879,19 @@ export const store = createStore({
     },
     push (context, payload) {
       context.commit('appendMoves', payload)
-      context.dispatch('fen', context.state.board.fen())
+      return context.dispatch('fen', context.state.board.fen()).then(() => {
+        // Only check for game end if a game was started via the new game modal
+        if (context.state.gameConfig) {
+          if (context.state.board.isGameOver()) {
+            const resultStr = context.state.board.result()
+            let result = null
+            if (resultStr === '1-0') result = 'white-win'
+            else if (resultStr === '0-1') result = 'black-win'
+            else if (resultStr === '1/2-1/2') result = 'draw'
+            context.dispatch('endGame', { result })
+          }
+        }
+      })
     },
     pushMainLine (context, payload) {
       let prev = payload.prev
@@ -653,6 +942,7 @@ export const store = createStore({
     resetEngineData (context) {
       context.commit('resetMultiPV')
       context.commit('resetEngineStats')
+      context.commit('resetWdlCache')
     },
     setPvEParam (context, payload) {
       context.commit('PvEParam', payload)
@@ -687,15 +977,43 @@ export const store = createStore({
       context.commit('active', true)
     },
     goEnginePvE (context) {
-      engine.send(context.getters.PvEParam)
+      // Send PvE engine command using the stored PvE engine instance and limiter
+      const pveEngine = context.state.PvEEngineInstance
+      const pveLimiter = context.state.PvELimiter
+      if (!pveEngine) {
+        console.error('[goEnginePvE] No PvE engine instance available')
+        return
+      }
+      try {
+        pveEngine.send(`position fen ${context.getters.fen}`)
+        pveEngine.send(limiterToGo(pveLimiter))
+      } catch (err) {
+        console.error('[goEnginePvE] Failed to send position/go to PvE engine:', err)
+      }
       context.commit('setEngineClock')
+      context.commit('active', true)
     },
     PvEMakeMove (context, payload) {
+      // Triggered when the engine emits 'bestmove'. Apply the move only if:
+      //  1. PvE mode is active 2. engine is to move now
       const state = context.state
-      if (state.active && state.PvE && !state.turn) {
-        context.dispatch('push', { move: payload, prev: context.getters.currentMove[0] })
+      const playerIsWhite = context.state.PvEPlayerIsWhite
+      const engineIsWhite = !playerIsWhite
+      const turnIsWhite = state.turn
+      const engineToMoveNow = (turnIsWhite && engineIsWhite) || (!turnIsWhite && !engineIsWhite)
+      if (state.active && state.PvE && engineToMoveNow) {
+        // Dispatch push and handle failure (invalid uci for current position)
+        context.dispatch('push', { move: payload, prev: context.getters.currentMove[0] }).then(() => {
+        }).catch((err) => {
+          // If engine returned a move invalid for the current position, log and restart engine on the
+          // current position so it recalculates for the correct state.
+          console.error('[PvEMakeMove] Engine provided invalid move for current position:', payload, err)
+          context.dispatch('position')
+          context.dispatch('goEnginePvE')
+        })
       }
     },
+
     setActiveTrue (context) {
       context.commit('active', true)
     },
@@ -705,14 +1023,261 @@ export const store = createStore({
     enginesActive (context, payload) {
       context.commit('enginesActive', payload)
     },
-    PvEtrue (context) {
-      context.commit('PvE', true)
+
+    setGameConfig (context, payload) {
+      context.commit('gameConfig', payload)
+    },
+
+    endGame (context, payload) {
+      context.commit('gameResult', payload.result)
+      const shouldShowModal = context.state.startGameModal && context.state.startGameModal.showEndGameModal !== false
+      if (shouldShowModal) {
+        context.commit('showGameEndModal', true)
+      }
+    },
+
+    closeGameEndModal (context) {
+      context.commit('showGameEndModal', false)
+    },
+    async PvEtrue (context, payload = {}) {
+      // Enable PvE mode and remember which side the human player controls.
+      // payload.playerIsWhite = true means the human is White (legacy behavior).
+      try {
+        const gameMode = payload.gameMode || context.getters.variant
+        const playerIsWhite = payload && typeof payload.playerIsWhite !== 'undefined' ? payload.playerIsWhite : true
+        const defaultEngine = context.getters.availableEngines[0]
+        const engineName = payload.engine || context.state.activeEngine || (defaultEngine && defaultEngine.name)
+        const pveLimiter = payload.pveLimiter || {
+          enabled: true,
+          type: context.state.PvEValue,
+          value: context.state.PvEInput
+        }
+
+        // Stop old PvE engine if it exists to avoid listener conflicts
+        if (context.state.PvEEngineInstance) {
+          try {
+            context.state.PvEEngineInstance.send('stop')
+            context.state.PvEEngineInstance.removeAllListeners()
+          } catch (err) {
+            console.warn('[PvEtrue] Error stopping old engine:', err)
+          }
+        }
+
+        const engineInfo = context.state.allEngines[engineName]
+        if (!engineInfo) {
+          throw new Error('Could not find engine binary for provided name')
+        }
+
+        // create engine instance
+        const pveEngine = new Engine()
+
+        // run the PvE engine
+        await pveEngine.run(engineInfo.binary, engineInfo.cwd)
+
+        // configure PvE engine with the desired game mode (variant) and 960 flag
+        const variantCmd = `setoption name UCI_Variant value ${gameMode}`
+        const chess960Cmd = `setoption name UCI_Chess960 value ${context.getters.is960}`
+
+        try {
+          pveEngine.send(variantCmd)
+          pveEngine.send(chess960Cmd)
+        } catch (err) {
+          console.warn('[PvEtrue] Failed to send variant/960 to PvE engine:', err)
+        }
+
+        // commit engine instance and PvE mode state
+        context.commit('PvE', true)
+        context.commit('PvEPlayerIsWhite', playerIsWhite)
+        context.commit('PvEEngineInstance', pveEngine)
+        context.commit('PvELimiter', pveLimiter)
+        context.commit('active', true)
+
+        const engineIsWhite = !playerIsWhite
+
+        // send position and go to the engine instance
+        const sendPositionAndGo = (inst, lim) => {
+          try {
+            inst.send(`position fen ${context.getters.fen}`)
+            inst.send(limiterToGo(lim))
+          } catch (err) {
+            console.error('[PvE] Failed to send position/go:', err)
+          }
+        }
+
+        // bestmove handler
+        const pveEngineHandler = async ucimove => {
+          const turnIsWhite = context.getters.turn
+          const engineToMoveNow = (turnIsWhite && engineIsWhite) || (!turnIsWhite && !engineIsWhite)
+
+          if (!context.state.PvE || !engineToMoveNow) return
+          try {
+            await context.dispatch('push', { move: ucimove, prev: context.getters.currentMove[0] })
+          } catch (err) {
+            console.error('[PvEMakeMove] Engine provided invalid move:', ucimove, err)
+            // try to restart the engine calculation on current position
+            context.dispatch('position')
+            sendPositionAndGo(pveEngine, pveLimiter)
+          }
+        }
+
+        // attach listener
+        pveEngine.on('bestmove', pveEngineHandler)
+
+        // kick off the engine if it's the engine's turn now
+        const turnIsWhiteNow = context.getters.turn
+        const engineToMoveNow = (turnIsWhiteNow && engineIsWhite) || (!turnIsWhiteNow && !engineIsWhite)
+        if (engineToMoveNow) {
+          sendPositionAndGo(pveEngine, pveLimiter)
+        }
+      } catch (err) {
+        console.error('[PvEtrue] Could not start PvE match:', err)
+      }
+    },
+    // Start an Engine vs Engine match. Payload must include engine names and limiter configs:
+    // { whiteEngine, blackEngine, whiteLimiter: { enabled, type, value }, blackLimiter: {...} }
+    async EvEtrue (context, payload = {}) {
+      try {
+        const gameMode = payload.gameMode
+
+        const whiteName = payload.whiteEngine
+        const blackName = payload.blackEngine
+        if (!whiteName || !blackName) {
+          throw new Error('Both whiteEngine and blackEngine must be provided')
+        }
+
+        const whiteInfo = context.state.allEngines[whiteName]
+        const blackInfo = context.state.allEngines[blackName]
+        if (!whiteInfo || !blackInfo) {
+          throw new Error('Could not find engine binaries for provided names')
+        }
+
+        // create engine instances
+        const white = new Engine()
+        const black = new Engine()
+
+        // run both engines
+        await Promise.all([
+          white.run(whiteInfo.binary, whiteInfo.cwd),
+          black.run(blackInfo.binary, blackInfo.cwd)
+        ])
+
+        // configure Eve engines with the desired game mode (variant) and 960 flag
+        const variantCmd = `setoption name UCI_Variant value ${gameMode}`
+        const chess960Cmd = `setoption name UCI_Chess960 value ${context.getters.is960}`
+
+        try {
+          white.send(variantCmd)
+          white.send(chess960Cmd)
+          black.send(variantCmd)
+          black.send(chess960Cmd)
+        } catch (err) {
+          console.warn('[EvEtrue] Failed to send variant/960 to Eve engines:', err)
+        }
+
+        context.commit('engineWhiteInstance', white)
+        context.commit('engineBlackInstance', black)
+        context.commit('EvEConfig', payload)
+        context.commit('EvE', true)
+        context.commit('enginesActive', [true, true])
+        context.commit('active', true)
+
+        // send position and go to a specific engine instance
+        const sendPositionAndGo = (inst, lim) => {
+          try {
+            inst.send(`position fen ${context.getters.fen}`)
+            inst.send(limiterToGo(lim))
+          } catch (err) {
+            console.error('[EvE] Failed to send position/go:', err)
+          }
+        }
+
+        // bestmove handlers
+        const whiteHandler = async ucimove => {
+          // only apply if it's White to move
+          const turnIsWhite = context.getters.turn
+          if (!context.state.EvE || !turnIsWhite) return
+          try {
+            await context.dispatch('push', { move: ucimove, prev: context.getters.currentMove[0] })
+            // after white move, trigger black
+            const cfg = context.state.EvEConfig || {}
+            sendPositionAndGo(context.state.engineBlackInstance, cfg.blackLimiter)
+          } catch (err) {
+            console.error('[EvEMakeMove] White provided invalid move:', ucimove, err)
+            // try to restart the black engine calculation on current position
+            context.dispatch('position')
+            sendPositionAndGo(context.state.engineBlackInstance, context.state.EvEConfig && context.state.EvEConfig.blackLimiter)
+          }
+        }
+
+        const blackHandler = async ucimove => {
+          const turnIsWhite = context.getters.turn
+          if (!context.state.EvE || turnIsWhite) return
+          try {
+            await context.dispatch('push', { move: ucimove, prev: context.getters.currentMove[0] })
+            // after black move, trigger white
+            const cfg = context.state.EvEConfig || {}
+            sendPositionAndGo(context.state.engineWhiteInstance, cfg.whiteLimiter)
+          } catch (err) {
+            console.error('[EvEMakeMove] Black provided invalid move:', ucimove, err)
+            context.dispatch('position')
+            sendPositionAndGo(context.state.engineWhiteInstance, context.state.EvEConfig && context.state.EvEConfig.whiteLimiter)
+          }
+        }
+
+        // attach listeners
+        white.on('bestmove', whiteHandler)
+        black.on('bestmove', blackHandler)
+
+        // kick off the side to move now
+        const turnIsWhiteNow = context.getters.turn
+        if (turnIsWhiteNow) {
+          sendPositionAndGo(white, payload.whiteLimiter)
+        } else {
+          sendPositionAndGo(black, payload.blackLimiter)
+        }
+      } catch (err) {
+        console.error('[EvEtrue] Could not start EvE match:', err)
+      }
+    },
+
+    async EvEfalse (context) {
+      // stop EvE match and quit engines
+      context.commit('EvE', false)
+      context.commit('enginesActive', [false, false])
+      try {
+        if (context.state.engineWhiteInstance) {
+          try { context.state.engineWhiteInstance.send('quit') } catch (e) {}
+          context.state.engineWhiteInstance.removeAllListeners && context.state.engineWhiteInstance.removeAllListeners()
+          context.commit('engineWhiteInstance', null)
+        }
+        if (context.state.engineBlackInstance) {
+          try { context.state.engineBlackInstance.send('quit') } catch (e) {}
+          context.state.engineBlackInstance.removeAllListeners && context.state.engineBlackInstance.removeAllListeners()
+          context.commit('engineBlackInstance', null)
+        }
+      } catch (err) {
+        console.error('[EvEfalse] Error stopping EvE engines:', err)
+      }
+      context.commit('active', false)
+      context.dispatch('resetEngineData')
     },
     stopEnginePvE (context) {
-      engine.send('stop')
+      if (context.state.PvEEngineInstance) {
+        context.state.PvEEngineInstance.send('stop')
+      }
     },
     PvEfalse (context) {
+      // Stop and clean up old PvE engine
+      if (context.state.PvEEngineInstance) {
+        try {
+          context.state.PvEEngineInstance.send('stop')
+          context.state.PvEEngineInstance.removeAllListeners()
+        } catch (err) {
+          console.warn('[PvEfalse] Error stopping PvE engine:', err)
+        }
+      }
       context.commit('PvE', false)
+      context.commit('PvEEngineInstance', null)
       if (!context.getters.turn) {
         context.dispatch('stopEngine')
       } else {
@@ -732,15 +1297,108 @@ export const store = createStore({
         context.dispatch('stopEngine')
         context.dispatch('position')
         context.dispatch('goEngine')
-      } else if (context.getters.active && context.getters.PvE && !context.getters.turn) {
-        context.dispatch('position')
-        context.dispatch('goEnginePvE')
+      } else if (context.getters.active && context.getters.PvE) {
+        const playerIsWhite = context.getters.PvEPlayerIsWhite
+        const engineIsWhite = !playerIsWhite
+        const turnIsWhite = context.getters.turn
+        const engineToMoveNow = (turnIsWhite && engineIsWhite) || (!turnIsWhite && !engineIsWhite)
+        if (engineToMoveNow) {
+          context.dispatch('position')
+          context.dispatch('goEnginePvE')
+        }
       }
     },
-    position (context) {
+    async position (context) {
+      const normalizedFen = context.getters.normalizedFen
+      const engineName = context.getters.engineName
+
       engine.send(`position fen ${context.getters.fen}`)
       const eve = new CustomEvent('position', { detail: { fen: context.getters.fen } })
       document.dispatchEvent(eve)
+      if (!ipcRenderer) {
+        console.log('ipcrenderer not available')
+        return
+      }
+      const evaluation = await ipcRenderer.invoke('eval-cache-get', {
+        positionKey: normalizedFen,
+        engineName
+      })
+      // expect array
+      if (!Array.isArray(evaluation) || evaluation.length === 0) return
+
+      // make sure result is not stale
+      if (!evaluation) return
+      if (context.getters.normalizedFen !== normalizedFen) return
+      if (context.getters.engineName !== engineName) return
+
+      // ignore pv updates when engine is expected to be inactive
+      if (!context.state.active) {
+        return
+      }
+      const primary = evaluation[0]
+      // update engine stats
+      const stats = { ...context.state.engineStats }
+      for (const key of Object.keys(stats)) {
+        if (key in primary) stats[key] = primary[key]
+      }
+      stats.isEvalCached = true
+      stats.cachedDepth = stats.depth
+      context.commit('engineStats', stats)
+
+      // update multipv array
+      const multipv = context.getters.multipv.slice(0)
+      for (const row of evaluation) {
+        const idx = (row.multipv || 1) - 1
+        if (idx < 0) continue
+
+        // handle mate-only rows (if you store mate)
+        if (row.mate === 0) {
+          multipv[idx] = { mate: row.mate }
+          continue
+        }
+
+        if (!row.pv_line) continue
+
+        const { board } = context.state
+        const ucimove = row.pv_line.split(/\s/)[0]
+
+        // verify first move is legal
+        if (!board.legalMoves().includes(ucimove)) continue
+
+        let cachedWdl = null
+        if (row.wdl_eval) {
+          try {
+            const parsed = JSON.parse(row.wdl_eval)
+            if (Array.isArray(parsed)) {
+              cachedWdl = parsed
+            }
+          } catch (err) {
+            // ignore invalid cache entry
+          }
+        }
+
+        const pvline = {
+          cp: row.cp_eval,
+          mate: row.mate,
+          pvUCI: row.pv_line,
+          ucimove
+        }
+        if (cachedWdl) {
+          pvline.wdl = cachedWdl
+        }
+
+        try {
+          pvline.pv = board.variationSan(row.pv_line)
+        } catch (err) {
+          // reset board to avoid being stuck
+          board.setFen(context.state.fen)
+          console.warn('Invalid cached pv move.\nFEN:', board.fen(), '\nPV:', row.pv_line)
+          continue
+        }
+
+        multipv[idx] = pvline
+      }
+      context.commit('multipv', multipv)
     },
     sendEngineCommand (_, payload) {
       engine.send(payload)
@@ -946,6 +1604,7 @@ export const store = createStore({
       // only change engine when its a different one
       if (context.state.activeEngine !== id) {
         context.state.activeEngine = id
+        context.dispatch('resetEngineData')
         context.dispatch('runBinary', {
           binary: context.getters.engineBinary,
           cwd: context.getters.selectedEngine.cwd
@@ -1019,6 +1678,9 @@ export const store = createStore({
       }
       context.commit('engineStats', stats)
 
+      // only update multipv if depth is higher than cached depth
+      if (stats.isEvalCached && stats.depth <= stats.cachedDepth) return
+
       // update pvline
       if ('pv' in payload) {
         const multipv = context.getters.multipv.slice(0)
@@ -1038,6 +1700,15 @@ export const store = createStore({
               pvUCI: payload.pv,
               ucimove
             }
+            if (Array.isArray(payload.wdl)) {
+              pvline.wdl = payload.wdl
+            }
+            // attach engine-provided WDL info when available (fractions 0..1)
+            if ('wdlWin' in payload || 'wdlDraw' in payload || 'wdlLoss' in payload) {
+              pvline.wdlWin = typeof payload.wdlWin === 'number' ? payload.wdlWin : parseFloat(payload.wdlWin)
+              pvline.wdlDraw = typeof payload.wdlDraw === 'number' ? payload.wdlDraw : parseFloat(payload.wdlDraw)
+              pvline.wdlLoss = typeof payload.wdlLoss === 'number' ? payload.wdlLoss : parseFloat(payload.wdlLoss)
+            }
             try {
               pvline.pv = board.variationSan(payload.pv)
             } catch (err) {
@@ -1050,6 +1721,32 @@ export const store = createStore({
           }
         }
         context.commit('multipv', multipv)
+        stats.isEvalCached = false
+      }
+      if (!('pv' in payload)) return
+      const depth = payload.depth
+      const mate = payload.mate
+
+      if (typeof depth !== 'number') return
+      if (depth < MIN_CACHE_DEPTH && typeof mate !== 'number') return
+      const positionKey = context.getters.normalizedFen
+      const engineName = context.getters.engineName
+      const cacheKey = `${positionKey}|${engineName}|${depth}|${payload.multipv}`
+      if (cacheKey === lastCacheKey) return
+      lastCacheKey = cacheKey
+      console.log(JSON.stringify(payload.multipv))
+      if (ipcRenderer && ipcRenderer.send) {
+        ipcRenderer.send('eval-cache-put', {
+          positionKey,
+          engineName,
+          depth,
+          cp: payload.cp,
+          wdl: payload.wdl,
+          mate,
+          pv: payload.pv,
+          multipv: payload.multipv,
+          updatedAt: Date.now()
+        })
       }
     },
     loadedGames (context, payload) {
@@ -1093,15 +1790,19 @@ export const store = createStore({
         context.commit('newBoard', { fen: fen, is960: is960 })
       }
       await context.dispatch('fen', fen)
-
       context.commit('selectedGame', payload.game)
       context.commit('gameInfo', gameInfo)
-      const moves = payload.game.mainlineMoves().split(' ')
+      const moves = payload.game.mainlineMoves().split(/\s+/).filter(Boolean)
+      // Parse comments from the original PGN if available
+      let commentMap = {}
+      if (payload.game.originalPGN) {
+        commentMap = extractCommentsFromPGN(payload.game.originalPGN)
+      }
       for (const num in moves) {
         if (num === 0) {
-          context.commit('appendMoves', { move: moves[num], prev: undefined })
+          context.commit('appendMoves', { move: moves[num], prev: undefined, comment: commentMap[0] })
         } else {
-          context.commit('appendMoves', { move: moves[num], prev: context.state.moves[num - 1] }) // TODO differentiate between alternative lines
+          context.commit('appendMoves', { move: moves[num], prev: context.state.moves[num - 1], comment: commentMap[num] }) // TODO differentiate between alternative lines
         }
       }
       context.dispatch('updateBoard')
@@ -1152,6 +1853,66 @@ export const store = createStore({
     },
     saveSettings (context) {
       context.commit('saveSettings')
+    },
+
+    // action wrapper to reset
+    async resetAllSettings ({ commit, dispatch }) {
+      // stop any running engine and timers
+      try {
+        await dispatch('stopEngine') // clears engine timer and active flag
+      } catch (e) {}
+
+      // reset engine runtime data (multipv + engineStats)
+      try {
+        await dispatch('resetEngineData')
+        commit('resetEngineTime') // clears interval
+      } catch (e) {}
+
+      // clear persisted engine lists / per-engine settings for full reset
+      try {
+        localStorage.removeItem('engines')
+        // remove any keys that start with 'engine'
+        for (const key in localStorage) {
+          if (typeof key === 'string' && key.startsWith('engine')) {
+            localStorage.removeItem(key)
+          }
+        }
+      } catch (e) {}
+
+      // clear piece/board style choices saved per-variant
+      try {
+        const styleKeys = [
+          'internationalPieceStyle', 'internationalBoardStyle',
+          'shogiPieceStyle', 'shogiBoardStyle',
+          'seaPieceStyle', 'seaBoardStyle',
+          'xiangqiPieceStyle', 'xiangqiBoardStyle',
+          'janggiPieceStyle', 'janggiBoardStyle'
+        ]
+        for (const k of styleKeys) {
+          localStorage.removeItem(k)
+        }
+      } catch (e) {}
+
+      // commit the state-level defaults
+      commit('resetAllSettings')
+
+      // ensure engine runtime counters are zeroed
+      commit('resetEngineStats')
+
+      // replace the board with a fresh one (safer than board.load)
+      try {
+        commit('newBoard')
+      } catch (e) {}
+
+      // persist basic UI settings
+      try {
+        dispatch('saveSettings')
+      } catch (e) {}
+
+      // re-run initialize to pick default engine / options like at app start
+      try {
+        await dispatch('initialize')
+      } catch (e) {}
     }
   },
   getters: {
@@ -1192,6 +1953,12 @@ export const store = createStore({
     PvE (state) {
       return state.PvE
     },
+    EvE (state) {
+      return state.EvE
+    },
+    PvEPlayerIsWhite (state) {
+      return state.PvEPlayerIsWhite
+    },
     PvEParam (state) {
       return state.PvEParam
     },
@@ -1227,6 +1994,9 @@ export const store = createStore({
     },
     fen (state) {
       return state.fen
+    },
+    normalizedFen (state) {
+      return state.normalizedFen
     },
     lastFen (state) {
       return state.lastFen
@@ -1281,6 +2051,9 @@ export const store = createStore({
     cp (state) {
       return state.multipv[0].cp
     },
+    wdl (state) {
+      return state.multipv[0].wdl
+    },
     depth (state) {
       return state.engineStats.depth
     },
@@ -1298,6 +2071,12 @@ export const store = createStore({
     },
     tbhits (state) {
       return state.engineStats.tbhits
+    },
+    isEvalCached (state) {
+      return state.engineStats.isEvalCached
+    },
+    cachedDepth (state) {
+      return state.engineStats.cachedDepth
     },
     time (state) {
       return state.engineStats.time
@@ -1323,12 +2102,17 @@ export const store = createStore({
         const pgnBoard = new ffish.Board(state.variant, state.startFen)
 
         const pgnMoves = state.selectedGame.mainlineMoves()
-        const san = pgnBoard.variationSan(pgnMoves, ffish.Notation.SAN, false)
+        let san
+        try {
+          san = pgnBoard.variationSan(pgnMoves, ffish.Notation.SAN, false)
+        } finally {
+          pgnBoard.delete()
+        }
         let str = ''
         state.moves.forEach(move => { str += move.name })
         const lastMove = state.moves[state.moves.length - 1]
         if (san.replace(/ /g, '') === str.replace(/ /g, '')) {
-          if (lastMove === currentMove && lastMove.ply === currentMove.ply) {
+          if (lastMove && lastMove === currentMove && lastMove.ply === currentMove.ply) {
             return state.selectedGame.headers('Result')
           }
         }
@@ -1352,6 +2136,39 @@ export const store = createStore({
       } else {
         return 1 / (1 + Math.exp(-0.003 * getters.cpForWhite))
       }
+    },
+    wdlForWhiteWin (state) {
+      const wdl = normalizeWdl(state.multipv[0])
+      if (wdl) {
+        return state.turn ? wdl.win : wdl.loss
+      }
+      return state.lastWdlWin
+    },
+    wdlForWhiteDraw (state) {
+      const wdl = normalizeWdl(state.multipv[0])
+      if (wdl) {
+        return wdl.draw
+      }
+      return state.lastWdlDraw
+    },
+    wdlForWhiteLoss (state) {
+      const wdl = normalizeWdl(state.multipv[0])
+      if (wdl) {
+        return state.turn ? wdl.loss : wdl.win
+      }
+      return state.lastWdlLoss
+    },
+    wdlForWhiteWinPct (state, getters) {
+      const v = getters.wdlForWhiteWin
+      return v === null ? null : v * 100
+    },
+    wdlForWhiteDrawPct (state, getters) {
+      const v = getters.wdlForWhiteDraw
+      return v === null ? null : v * 100
+    },
+    wdlForWhiteLossPct (state, getters) {
+      const v = getters.wdlForWhiteLoss
+      return v === null ? null : v * 100
     },
     message (state) {
       return state.message.toUpperCase()
@@ -1395,6 +2212,15 @@ export const store = createStore({
     selectedGame (state) {
       return state.selectedGame
     },
+    gameConfig (state) {
+      return state.gameConfig
+    },
+    showGameEndModal (state) {
+      return state.showGameEndModal
+    },
+    gameResult (state) {
+      return state.gameResult
+    },
     isInternational (state) {
       return state.internationalVariants.includes(state.variant)
     },
@@ -1411,10 +2237,11 @@ export const store = createStore({
       return state.shogiVariants.includes(state.variant)
     },
     moveStack (state) {
-      return state.board.moveStack()
+      // Board is a raw native object, so track the reactive FEN for getter updates.
+      return state.fen && state.board ? state.board.moveStack() : ''
     },
     isGameOver (state) {
-      return state.board.isGameOver()
+      return !!state.fen && state.board !== null && state.board.isGameOver()
     },
     sanMove (state) {
       return (uciMove) => state.board.sanMove(uciMove)

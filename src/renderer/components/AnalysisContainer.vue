@@ -59,7 +59,7 @@
         class="processing-bar"
         :class="{ animate: isEngineActive }"
       />
-      <!-- <PVLines
+      <PVLines
         v-if="QuickTourIndex !== 12"
         ref="pvlines"
         class="panel"
@@ -68,7 +68,7 @@
         v-else
         ref="pvlines"
         class="panel-qt"
-      /> -->
+      />
       <div
         v-if="QuickTourIndex !== 13"
         class="game-window panel noselect"
@@ -101,23 +101,6 @@
           />
         </div>
       </div>
-      <JumpButtons
-        v-if="QuickTourIndex !== 14"
-        @flip-board="$emit('flip-board', 0)"
-        @move-to-start="$emit('move-to-start', 0)"
-        @move-back-one="$emit('move-back-one', 0)"
-        @move-forward-one="$emit('move-forward-one', 0)"
-        @move-to-end="$emit('move-to-end', 0)"
-      />
-      <JumpButtons
-        v-else
-        id="JumpButtons-qt"
-        @flip-board="$emit('flip-board', 0)"
-        @move-to-start="$emit('move-to-start', 0)"
-        @move-back-one="$emit('move-back-one', 0)"
-        @move-forward-one="$emit('move-forward-one', 0)"
-        @move-to-end="$emit('move-to-end', 0)"
-      />
       <EngineConsole
         v-if="QuickTourIndex !== 16"
         ref="console"
@@ -145,9 +128,8 @@
 import { mapGetters } from 'vuex'
 
 // import AnalysisEvalRow from './AnalysisEvalRow'
-import JumpButtons from './JumpButtons'
 import EngineStats from './EngineStats'
-// import PVLines from './PVLines'
+import PVLines from './PVLines'
 import EngineConsole from './EngineConsole'
 import MoveHistoryNode from './MoveHistoryNode'
 import RoundedSwitch from './RoundedSwitch'
@@ -218,13 +200,18 @@ export default {
   name: 'AnalysisContainer',
   components: {
     // AnalysisEvalRow,
-    JumpButtons,
     EngineStats,
-    // PVLines,
+    PVLines,
     EngineConsole,
     MoveHistoryNode,
     RoundedSwitch,
     EngineSelect
+  },
+  props: {
+    reset: {
+      type: Boolean,
+      default: false
+    }
   },
   data () {
     return {
@@ -257,7 +244,7 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(['active', 'mainFirstMove', 'cpForWhiteStr', 'engineIndex', 'PvE', 'availableEngines', 'currentMove', 'active', 'variant', 'QuickTourIndex']),
+    ...mapGetters(['active', 'mainFirstMove', 'cpForWhiteStr', 'engineIndex', 'PvE', 'availableEngines', 'currentMove', 'variant', 'QuickTourIndex']),
     movesExist () {
       const moves = this.$store.getters.moves
       return moves.length !== 0
@@ -284,9 +271,9 @@ export default {
         const san = pgnBoard.variationSan(pgnMoves, ffish.Notation.SAN, false)
         let str = ''
         this.$store.state.moves.forEach(move => { str += move.name })
-        const lastMove = this.$store.state.moves[this.$store.moves.length - 1]
+        const lastMove = this.$store.state.moves[this.$store.state.moves.length - 1]
         if (san.replace(/ /g, '') === str.replace(/ /g, '')) {
-          if (lastMove === currentMove && lastMove.ply === currentMove.ply) {
+          if (lastMove && currentMove && lastMove === currentMove && lastMove.ply === currentMove.ply) {
             return this.$store.state.selectedGame.headers('Result')
           }
         }
@@ -448,9 +435,6 @@ input {
   height: 20%;
   overflow-y: scroll;
   background-color: var(--second-bg-color);
-  border: 5px solid var(--quicktour-highlight);
-}
-#JumpButtons-qt {
   border: 5px solid var(--quicktour-highlight);
 }
 .panel {

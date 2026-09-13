@@ -22,7 +22,7 @@
           style="white-space: pre-line"
         >
           <span>
-            {{ 'Version: 0.4.0' }}
+            Version: {{ version }}
           </span>
         </div>
         <div class="item">
@@ -95,6 +95,7 @@
 
 <script>
 import { shell } from 'electron'
+import packageInfo from '../../../package.json'
 
 export default {
   name: 'AboutTabModal',
@@ -103,6 +104,10 @@ export default {
       required: true,
       type: String
     }
+  },
+  emits: ['close'],
+  data () {
+    return { version: packageInfo.version }
   },
   methods: {
     cancel () {
@@ -130,7 +135,7 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 10;
+  z-index: 10000;
 }
 .backdrop {
   position: absolute;
@@ -147,6 +152,9 @@ export default {
   background: var(--second-bg-color);
   box-shadow: 2px 2px 20px 1px var(--second-bg-color);
   overflow-x: 10px;
+  width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 .item {
   margin: 5px 0;
