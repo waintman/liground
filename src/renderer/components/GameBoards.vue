@@ -4,6 +4,14 @@
     <div>
       <div class="main-grid">
         <div class="chessboard-grid">
+          <PgnBrowser
+            v-if="QuickTourIndex !== 1"
+            id="pgnbrowser"
+          />
+          <PgnBrowser
+            v-else
+            id="pgnbrowser-qt"
+          />
           <div class="board-grid">
             <div class="board">
               <span>
@@ -135,24 +143,32 @@
               {{ opening.eco }} – {{ opening.name }}
             </div>
           </div>
-          <JumpButtons
-            v-if="QuickTourIndex !== 14"
-            id="jump-buttons"
-            @flip-board="flipBoard"
-            @move-to-start="moveToStart"
-            @move-back-one="moveBackOne"
-            @move-forward-one="moveForwardOne"
-            @move-to-end="moveToEnd"
-          />
-          <JumpButtons
+          <div
+            id="reset-button"
+            class="resetButton"
+          >
+            <input
+              type="button"
+              value="Reset"
+              class="reset"
+              @click="resetBoard"
+            >
+          </div>
+          <div id="pv-lines" />
+          <div
+            v-if="QuickTourIndex !== 5"
+            id="selector-container"
+          >
+            <PieceStyleSelector id="piece-style" />
+            <BoardStyleSelector id="board-style" />
+          </div>
+          <div
             v-else
-            id="jump-buttons-qt"
-            @flip-board="flipBoard"
-            @move-to-start="moveToStart"
-            @move-back-one="moveBackOne"
-            @move-forward-one="moveForwardOne"
-            @move-to-end="moveToEnd"
-          />
+            id="selector-container-qt"
+          >
+            <PieceStyleSelector id="piece-style" />
+            <BoardStyleSelector id="board-style" />
+          </div>
         </div>
         <EvalPlot
           v-if="QuickTourIndex !== 6"
@@ -190,7 +206,9 @@ import AnalysisView from './AnalysisView'
 import EvalBar from './EvalBar'
 import EvalPlot from './EvalPlot'
 import ChessGround from './ChessGround'
-import JumpButtons from './JumpButtons'
+import PgnBrowser from './PgnBrowser.vue'
+import PieceStyleSelector from './PieceStyleSelector'
+import BoardStyleSelector from './BoardStyleSelector'
 import SettingsTab from './SettingsTab'
 import GameInfo from './GameInfo.vue'
 import { findBestOpeningForFen } from '../../shared/openingLookup'
@@ -203,7 +221,9 @@ export default {
     EvalBar,
     EvalPlot,
     ChessGround,
-    JumpButtons,
+    PgnBrowser,
+    PieceStyleSelector,
+    BoardStyleSelector,
     GameInfo,
     SettingsTab
   },
@@ -573,24 +593,23 @@ export default {
 <style scoped>
 .main-grid {
   display: grid;
-  grid-template-columns: minmax(45%, 1fr) minmax(30%, 1fr);
-  grid-template-rows: auto auto auto;
-  column-gap: 28px;
-  padding-right: 12px;
+  grid-template-columns: 850px auto;
+  grid-template-rows: auto auto;
   grid-template-areas:
     "chessboard analysisview"
     "evalplot analysisview";
 }
 .chessboard-grid {
+  min-width: 850px;
   grid-area: chessboard;
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: auto auto auto;
+  grid-template-columns: 20% 650px 5%;
+  grid-template-rows: auto 150px auto auto;
   grid-template-areas:
-    "board-grid"
-    "fenfield"
-    "jumpbuttons";
-  min-width: 0;
+    "pgnbrowser board-grid board-grid"
+    "selector board-grid board-grid"
+    ". fenfield resetfield"
+    ". pvlinesfield pvlinesfield"
 }
 
 .board-grid {
@@ -683,11 +702,8 @@ export default {
 }
 #right-column {
   grid-area: analysisview;
-  width: 100%;
+  width: 40vw;
   max-height: calc(100vh - 25px);
-  min-width: 0;
-  padding-left: 16px;
-  box-sizing: border-box;
 }
 .tab:not(.visible) {
   display: none;
@@ -698,20 +714,9 @@ input {
 #fen-field {
   grid-area: fenfield;
   /*margin-left: 48px;*/
-  margin-top: 12px;
 }
 #fen-field-qt {
   grid-area: fenfield;
-  border: 5px solid var(--quicktour-highlight);
-  margin-top: 12px;
-}
-#jump-buttons {
-  grid-area: jumpbuttons;
-  margin-top: 8px;
-}
-#jump-buttons-qt {
-  grid-area: jumpbuttons;
-  margin-top: 8px;
   border: 5px solid var(--quicktour-highlight);
 }
 #reset-button {
@@ -725,6 +730,35 @@ input {
 #lname {
   background-color: var(--second-bg-color);
   color: var(--main-text-color)
+}
+#selector-container {
+  grid-area: selector;
+  display: grid;
+  grid-template-areas:
+  "piecestyle"
+  "boardstyle"
+  "evalButton";
+  margin-left: 5px;
+}
+#selector-container-qt {
+  grid-area: selector;
+  display: grid;
+  grid-template-areas:
+  "piecestyle"
+  "boardstyle"
+  "evalButton";
+  margin-left: 5px;
+  border: 5px solid var(--quicktour-highlight);
+}
+#piece-style {
+  grid-area: piecestyle;
+  margin-top: 10px;
+  width: 100%;
+}
+#board-style {
+  grid-area: boardstyle;
+  margin-top: 10px;
+  width: 100%;
 }
 #pgnbrowser {
   grid-area: pgnbrowser;
@@ -745,14 +779,13 @@ input {
   display: flex;
   flex-direction: row;
   justify-content: center;
-  width: 100%;
+  width: max-content
 }
 
 .board {
   grid-area: board;
   display: grid;
-  column-gap: 12px;
-  padding-left: 12px;
+  grid-template-rows: auto auto 600px auto;
   grid-template-areas:
   "gameinfo ."
   "selectRedPiecePosition selectRedPiecePosition"
@@ -772,18 +805,15 @@ input {
 #inner {
   display: table;
   margin: 0 auto;
-  padding-left: 12px;
 }
 .evalbar {
   grid-area: evalbar;
-  margin-left: 0px;
-  padding-right: 0;
+  margin-left: 8px;
   height: auto;
 }
 .evalbar-qt {
   grid-area: evalbar;
-  margin-left: 0px;
-  padding-right: 0;
+  margin-left: 8px;
   height: auto;
   border: 3px solid var(--quicktour-highlight);
 }
@@ -792,35 +822,14 @@ input {
 }
 #evalplot {
   grid-area: evalplot;
-  width: 100%;
-  max-width: none;
-  margin-top: 12px;
-  margin-left: 12px;
 }
 #evalplot-qt {
   grid-area: evalplot;
   border: 5px solid var(--quicktour-highlight);
-  width: 100%;
-  max-width: none;
-  margin-top: 12px;
-  margin-left: 12px;
 }
 #evalbutton-style {
   margin-top: 10px;
   grid-area: evalButton;
-}
-
-@media (max-width: 1100px) {
-  .main-grid {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "chessboard"
-      "evalplot"
-      "analysisview";
-  }
-  #right-column {
-    max-height: none;
-  }
 }
 
 </style>

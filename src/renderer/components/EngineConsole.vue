@@ -436,7 +436,7 @@ export default {
       return scroller.scrollHeight - scroller.clientHeight
     },
     scrollToBottom (smooth) {
-      if (this.$refs.scroller !== undefined) {
+      if (this.$refs.scroller) {
         this.$refs.scroller.scrollTo({ top: this.getScrollTopMax(), behavior: smooth ? 'smooth' : 'auto' })
       }
     },

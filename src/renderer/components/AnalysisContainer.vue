@@ -59,16 +59,22 @@
         class="processing-bar"
         :class="{ animate: isEngineActive }"
       />
-      <PVLines
-        v-if="QuickTourIndex !== 12"
-        ref="pvlines"
-        class="panel"
-      />
-      <PVLines
-        v-else
-        ref="pvlines"
-        class="panel-qt"
-      />
+      <Teleport
+        to="#pv-lines"
+        :disabled="engineID !== 1"
+        defer
+      >
+        <PVLines
+          v-if="QuickTourIndex !== 12"
+          ref="pvlines"
+          class="panel"
+        />
+        <PVLines
+          v-else
+          ref="pvlines"
+          class="panel-qt"
+        />
+      </Teleport>
       <div
         v-if="QuickTourIndex !== 13"
         class="game-window panel noselect"
@@ -101,6 +107,23 @@
           />
         </div>
       </div>
+      <JumpButtons
+        v-if="QuickTourIndex !== 14"
+        @flip-board="$emit('flip-board', 0)"
+        @move-to-start="$emit('move-to-start', 0)"
+        @move-back-one="$emit('move-back-one', 0)"
+        @move-forward-one="$emit('move-forward-one', 0)"
+        @move-to-end="$emit('move-to-end', 0)"
+      />
+      <JumpButtons
+        v-else
+        id="JumpButtons-qt"
+        @flip-board="$emit('flip-board', 0)"
+        @move-to-start="$emit('move-to-start', 0)"
+        @move-back-one="$emit('move-back-one', 0)"
+        @move-forward-one="$emit('move-forward-one', 0)"
+        @move-to-end="$emit('move-to-end', 0)"
+      />
       <EngineConsole
         v-if="QuickTourIndex !== 16"
         ref="console"
@@ -128,6 +151,7 @@
 import { mapGetters } from 'vuex'
 
 // import AnalysisEvalRow from './AnalysisEvalRow'
+import JumpButtons from './JumpButtons'
 import EngineStats from './EngineStats'
 import PVLines from './PVLines'
 import EngineConsole from './EngineConsole'
@@ -200,6 +224,7 @@ export default {
   name: 'AnalysisContainer',
   components: {
     // AnalysisEvalRow,
+    JumpButtons,
     EngineStats,
     PVLines,
     EngineConsole,
@@ -213,6 +238,7 @@ export default {
       default: false
     }
   },
+  emits: ['flip-board', 'move-to-start', 'move-back-one', 'move-forward-one', 'move-to-end'],
   data () {
     return {
       currentVariant: null,
@@ -308,10 +334,10 @@ export default {
   mounted () {
     this.currentVariant = this.variant
     this.engineID = this.engineIndex
-    if (this.$refs.pvlines) {
-      this.$refs.pvlines.currentEngineIndex(this.engineID)
-    }
     this.$nextTick(() => {
+      if (this.$refs.pvlines) {
+        this.$refs.pvlines.currentEngineIndex(this.engineID)
+      }
       this.$refs.console.setEngineIndex(this.engineID)
       this.$refs.enginestats.fillID(this.engineID)
       this.$refs.engineselect.setEngineIndex(this.engineIndex)
@@ -435,6 +461,9 @@ input {
   height: 20%;
   overflow-y: scroll;
   background-color: var(--second-bg-color);
+  border: 5px solid var(--quicktour-highlight);
+}
+#JumpButtons-qt {
   border: 5px solid var(--quicktour-highlight);
 }
 .panel {
