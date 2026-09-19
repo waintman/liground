@@ -313,6 +313,8 @@ export default {
     PvE: 'updateEngineShapes',
     EvE: 'updateEngineShapes',
     variant () {
+      // Variants can share a style name but use different board images.
+      this.updateBoardCSS(this.boardStyle)
       if (this.variant === 'shogi') {
         this.piecesW = this.shogiPiecesW
         this.piecesB = this.shogiPiecesB

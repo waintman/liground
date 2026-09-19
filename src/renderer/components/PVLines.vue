@@ -494,7 +494,9 @@ export default {
 }
 
 .pv-preview .cg-board-wrap {
-  background-size: 100% 100%;
+  /* Match the main board: square *Coords.svg assets include a right margin
+     that must be cropped, not squeezed into the 9 x 10 playing area. */
+  background-size: cover;
 }
 .pv-preview .cg-wrap {
   width: 100%;
