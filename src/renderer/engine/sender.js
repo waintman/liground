@@ -73,7 +73,8 @@ export default class EngineSender {
         this.cache.io.push(payload)
         break
       case 'info':
-        if ('multipv' in payload) {
+        if (typeof payload.pv === 'string') {
+          payload.multipv = payload.multipv || 1
           const line = {}
           for (const key of ['multipv', 'pv', 'cp', 'wdl', 'wdlWin', 'wdlDraw', 'wdlLoss', 'mate', 'depth', 'seldepth']) {
             line[key] = payload[key]

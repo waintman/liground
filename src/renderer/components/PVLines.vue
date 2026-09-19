@@ -54,6 +54,12 @@
         <div ref="previewBoard" />
       </div>
     </div>
+    <div class="pv-guide">
+      <span class="pv-best">● 첫 수</span>
+      <span class="pv-reply">● 상대 응수</span>
+      <span class="pv-follow">● 후속 수</span>
+      · 최대 6수 · 굵은 화살표부터 · 한수쉼은 원으로 표시
+    </div>
     <footer class="footer">
       <div
         v-if="engineDetails.length > 0"
@@ -101,6 +107,7 @@ export default {
           ucimove: ''
         }
       ],
+      hoveredLineId: null,
       previewLineId: null, // Shows which PV line is being previewed
       previewTop: 0,
       previewLeft: 0,
@@ -142,11 +149,7 @@ export default {
   },
   watch: {
     pvcount () {
-      let i
-      this.lines = []
-      for (i = 0; i < this.pvcount; i++) {
-        this.lines.push(0)
-      }
+      this.updateMultiLines()
     },
     multipvMulti: {
       handler: 'updateMultiLines',
@@ -157,18 +160,24 @@ export default {
       deep: true
     },
     fen () {
-      this.clearPreview()
+      this.onMouseLeave()
     },
     orientation () {
       this.clearPreview()
     },
     variant () {
-      this.clearPreview()
+      this.onMouseLeave()
     },
-    lines () {
-      if (this.previewLineId === null) return
-      if (!this.lines[this.previewLineId]) {
-        this.clearPreview()
+    lines: {
+      deep: true,
+      handler () {
+        if (this.hoveredLineId === null) return
+        if (!this.lines[this.hoveredLineId]) {
+          this.onMouseLeave()
+          return
+        }
+        this.syncHoveredLine()
+        this.refreshPreview()
       }
     },
     engineSettings: {
@@ -180,8 +189,7 @@ export default {
     }
   },
   beforeUnmount () {
-    this.clearPreview()
-    this.$store.commit('hoveredpv', -1)
+    this.onMouseLeave()
   },
   mounted () {
     this.updateLines()
@@ -291,14 +299,34 @@ export default {
       this.previewUciIdx = uciIndex
       this.displayIdx = previewIdx
 
-      const uciMoves = this.lines[lineId].pvUCI.trim().split(/\s+/)
-      const plyCount = uciIndex
+      this.hoveredLineId = lineId
+      this.syncHoveredLine()
+      this.refreshPreview()
+    },
+    refreshPreview () {
+      if (this.previewLineId === null || !this.previewUciIdx) return
+      const line = this.lines[this.previewLineId]
+      if (!line || !line.pvUCI) {
+        this.clearPreview()
+        return
+      }
+      const uciMoves = line.pvUCI.trim().split(/\s+/)
       try {
-        this.previewFen = this.computePreviewFen(this.fen, uciMoves, plyCount)
+        this.previewFen = this.computePreviewFen(this.fen, uciMoves, Math.min(this.previewUciIdx, uciMoves.length))
         this.$nextTick(() => this.updatePreviewFen())
       } catch (e) {
         this.clearPreview()
       }
+    },
+    syncHoveredLine () {
+      const line = this.lines[this.hoveredLineId]
+      if (!line) return
+      this.$store.commit('hoveredPvLine', {
+        engineId: this.currentEngine,
+        fen: this.fen,
+        line,
+        plyCount: this.previewUciIdx
+      })
     },
     async setBoard (lineId, displayIdx, entries) {
       const previewIdx = this.previewIndex(displayIdx, entries)
@@ -371,23 +399,28 @@ export default {
       return typeof entry === 'string' && entry.length > 0 && !this.isMoveNumber(entry)
     },
     onMouseEnter (id) {
-      this.$store.commit('hoveredpv', id)
-      this.ensurePreviewBoard()
+      this.hoveredLineId = id
+      this.syncHoveredLine()
     },
     onMouseLeave () {
+      this.hoveredLineId = null
       this.clearPreview()
-      this.$store.commit('hoveredpv', -1)
+      const hovered = this.$store.getters.hoveredPvLine
+      if (hovered && hovered.engineId === this.currentEngine) {
+        this.$store.commit('hoveredPvLine', null)
+        this.$store.commit('hoveredpv', -1)
+      }
     },
     onClick (line) {
       if (!line || !line.ucimove) return
-      this.$store.commit('hoveredpv', -1)
+      this.onMouseLeave()
       const prevMov = this.currentMove
       this.$store.dispatch('push', { move: line.ucimove, prev: prevMov })
     },
     updateLines () {
       if (this.currentEngine === 1) {
         const count = this.engineSettings.MultiPV
-        const lines = this.multipv.filter(el => typeof el.pv === 'string' && el.pv.length > 0)
+        const lines = this.multipv.map(el => el && typeof el.pv === 'string' && el.pv.length > 0 ? el : null)
         this.lines = lines.concat(Array(count ? Math.max(0, count - lines.length) : 0).fill(null))
         if (this.showOnlyOnePvLine) {
           this.lines = this.lines.slice(0, 1)
@@ -397,7 +430,7 @@ export default {
     updateMultiLines () {
       if (this.currentEngine !== 1) {
         const count = this.pvcount
-        const lines = this.multipvMulti.filter(el => typeof el.pv === 'string' && el.pv.length > 0)
+        const lines = this.multipvMulti.map(el => el && typeof el.pv === 'string' && el.pv.length > 0 ? el : null)
         this.lines = lines.concat(Array(count ? Math.max(0, count - lines.length) : 0).fill(null))
         if (this.showOnlyOnePvLine) {
           this.lines = this.lines.slice(0, 1)
@@ -430,7 +463,16 @@ export default {
 .pv-entry.is-move-token:hover {
   font-weight: bold;
 }
+.pv-guide {
+  white-space: normal;
+  font-size: 11px;
+  padding: 5px;
+}
+.pv-best { color: #b99a00; }
+.pv-reply { color: #e05050; }
+.pv-follow { color: #299b65; }
 .pv-preview {
+  pointer-events: none;
   display: inline-block;
   position: absolute;
   z-index: 20;

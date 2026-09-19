@@ -63,6 +63,7 @@ import { Chessground } from 'chessgroundx'
 import * as cgUtil from 'chessgroundx/util'
 import ChessPocket from './ChessPocket'
 import PromotionModal from './PromotionModal.vue'
+import { pvShapes } from '../engine/pvShapes'
 
 const WHITE = true
 const BLACK = false
@@ -233,7 +234,7 @@ export default {
       // Block mouse input completely when not player's turn
       return this.isPlayerTurn ? 'auto' : 'none'
     },
-    ...mapGetters(['initialized', 'variant', 'multipv', 'hoveredpv', 'redraw', 'pieceStyle', 'boardStyle', 'fen', 'lastFen', 'orientation', 'moves', 'isPast', 'dimensionNumber', 'analysisMode', 'active', 'PvE', 'PvEPlayerIsWhite', 'EvE', 'enginetime', 'resized', 'resized9x9width', 'resized9x9height', 'resized9x10width', 'resized9x10height', 'dimNumber'])
+    ...mapGetters(['initialized', 'variant', 'multipv', 'hoveredpv', 'hoveredPvLine', 'redraw', 'pieceStyle', 'boardStyle', 'fen', 'lastFen', 'orientation', 'moves', 'isPast', 'dimensionNumber', 'analysisMode', 'active', 'PvE', 'PvEPlayerIsWhite', 'EvE', 'enginetime', 'resized', 'resized9x9width', 'resized9x9height', 'resized9x10width', 'resized9x10height', 'dimNumber'])
   },
   watch: {
     dimensionNumber () {
@@ -290,6 +291,7 @@ export default {
       deep: true
     },
     hoveredpv: 'updateEngineShapes',
+    hoveredPvLine: { handler: 'updateEngineShapes', deep: true },
     PvE: 'updateEngineShapes',
     EvE: 'updateEngineShapes',
     variant () {
@@ -429,70 +431,13 @@ export default {
         return
       }
 
-      const multipv = this.multipv
-      const shapes = []
-      const pieceShapes = []
-      if (this.hoveredpv >= 0 && this.multipv[this.hoveredpv] && this.multipv[this.hoveredpv].pvUCI) {
-        const moves = this.multipv[this.hoveredpv].pvUCI.split(' ')
-        const brushes = ['red', 'green']
-        let brushIdx = 0
-        for (const [j, move] of moves.entries()) {
-          let orig = move.substring(0, 2)
-          let dest = move.substring(2, 4)
-          if (this.dimensionNumber === 3) {
-            const extract = this.extractMoves(move)
-            orig = extract[0].replace('10', ':')
-            dest = extract[1].replace('10', ':')
-          }
-          const drawShape = { orig, dest, brush: brushes[brushIdx ^= 1], modifiers: { lineWidth: 2 + (12 - (j * 2)) } }
-          shapes.unshift(drawShape)
-          if (j === 6) {
-            break
-          }
-        }
-      }
-      for (const [i, pvline] of multipv.entries()) {
-        if (pvline && 'ucimove' in pvline && pvline.ucimove.length > 0) {
-          const lineWidth = 2 + ((multipv.length - i) / multipv.length) * 8
-          const move = pvline.ucimove
-          let orig = move.substring(0, 2)
-          let dest = move.substring(2, 4)
-          let drawShape
-          if (this.dimensionNumber === 3) {
-            const extract = this.extractMoves(move)
-            orig = extract[0].replace('10', ':')
-            dest = extract[1].replace('10', ':')
-          }
-          if (move.includes('@')) {
-            const pieceType = move[0].toLowerCase()
-            const pieceConv = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' }
-            pieceShapes.unshift({
-              orig: dest,
-              dest: dest,
-              brush: 'paleBlue',
-              modifiers: { lineWidth },
-              piece: {
-                role: pieceConv[pieceType],
-                color: this.turn
-              }
-            })
-            drawShape = { orig: dest, brush: 'paleBlue', modifiers: { lineWidth } }
-          } else {
-            drawShape = { orig, dest, brush: 'paleBlue', modifiers: { lineWidth } }
-          }
-          // adjust color if pv line is hovered
-          if (i === this.hoveredpv) {
-            drawShape.brush = 'blue'
-          }
-          if (i === 0) {
-            drawShape.brush = 'yellow'
-          }
-          // put item in front of list, so that the best move is drawn last
-          shapes.unshift(drawShape)
-        }
-      }
-      this.pieceShapes = pieceShapes
-      this.shapes = shapes
+      // Show the best continuation continuously; hovering selects another engine/line.
+      const hovered = this.hoveredPvLine
+      const selection = hovered && hovered.fen === this.fen ? hovered : null
+      const line = selection ? selection.line : this.multipv[0]
+      const limit = selection && selection.plyCount ? Math.min(selection.plyCount, 6) : 6
+      this.shapes = pvShapes(line && line.pvUCI, limit)
+      this.pieceShapes = []
       this.drawShapes()
     },
     closeCursorHand () {

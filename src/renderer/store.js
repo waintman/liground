@@ -322,6 +322,7 @@ export const store = createStore({
       ],
       engineCounter: 1,
       hoveredpv: -1,
+      hoveredPvLine: null,
       counter: 0,
       pieceStyle: 'cburnett',
       board: null,
@@ -558,6 +559,9 @@ export const store = createStore({
         state.lastWdlLoss = state.turn ? wdl.loss : wdl.win
       }
     },
+    hoveredPvLine (state, payload) {
+      state.hoveredPvLine = payload
+    },
     hoveredpv (state, payload) {
       state.hoveredpv = payload
     },
@@ -565,6 +569,8 @@ export const store = createStore({
       state.counter += payload
     },
     resetMultiPV (state) {
+      state.hoveredpv = -1
+      state.hoveredPvLine = null
       state.multipv = [
         {
           cp: 0,
@@ -1335,6 +1341,7 @@ export const store = createStore({
       if (!context.state.active) {
         return
       }
+      if (context.getters.multipv.some(line => line && line.pvUCI) && !context.state.engineStats.isEvalCached) return
       const primary = evaluation[0]
       // update engine stats
       const stats = { ...context.state.engineStats }
@@ -1678,8 +1685,7 @@ export const store = createStore({
       }
       context.commit('engineStats', stats)
 
-      // only update multipv if depth is higher than cached depth
-      if (stats.isEvalCached && stats.depth <= stats.cachedDepth) return
+      // Cached evaluations seed the display; live analysis always replaces them.
 
       // update pvline
       if ('pv' in payload) {
@@ -1717,11 +1723,12 @@ export const store = createStore({
               board.setFen(context.state.fen)
               console.warn('Invalid engine pv move.\nFEN:', board.fen(), '\nPV:', payload.pv)
             }
-            multipv[payload.multipv - 1] = pvline
+            multipv[(payload.multipv || 1) - 1] = pvline
           }
         }
         context.commit('multipv', multipv)
         stats.isEvalCached = false
+        context.commit('engineStats', stats)
       }
       if (!('pv' in payload)) return
       const depth = payload.depth
@@ -2044,6 +2051,9 @@ export const store = createStore({
     },
     multipv (state) {
       return state.multipv
+    },
+    hoveredPvLine (state) {
+      return state.hoveredPvLine
     },
     hoveredpv (state) {
       return state.hoveredpv
