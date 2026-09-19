@@ -40,6 +40,19 @@
           />
           <div ref="board" />
           <div
+            class="pv-number-overlay"
+            :class="{ 'pv-number-overlay-black': orientation === 'black' }"
+            aria-hidden="true"
+          >
+            <span
+              v-for="label in pvMoveLabels"
+              :key="label.order"
+              class="pv-move-number"
+              :class="'pv-number-' + label.brush"
+              :style="{ left: label.x + '%', top: label.y + '%' }"
+            >{{ label.order }}</span>
+          </div>
+          <div
             v-if="isPromotionModalVisible"
             id="PromotionModal"
             ref="promotion"
@@ -63,7 +76,7 @@ import { Chessground } from 'chessgroundx'
 import * as cgUtil from 'chessgroundx/util'
 import ChessPocket from './ChessPocket'
 import PromotionModal from './PromotionModal.vue'
-import { pvShapes } from '../engine/pvShapes'
+import { pvShapes, pvLabels } from '../engine/pvShapes'
 
 const WHITE = true
 const BLACK = false
@@ -187,6 +200,11 @@ export default {
     }
   },
   computed: {
+    pvMoveLabels () {
+      const width = this.dimensionNumber === 0 ? 8 : 9
+      const height = this.dimensionNumber === 3 ? 10 : width
+      return pvLabels(this.shapes, width, height, this.orientation)
+    },
     currentMove () { // returns undefined when the current fen doesnt match a move from the history, otherwise it returns move from the moves array that matches the current fen
       for (let num = 0; num < this.moves.length; num++) {
         if (this.moves[num].fen === this.fen) {
@@ -995,7 +1013,7 @@ export default {
 .rotate180 {
   transform: rotate(180deg);
 }
-.cg-board-wrap .orientation-black {
+.cg-board-wrap.rotate180 > .orientation-black {
   transform: rotate(-180deg);
 }
 .koth cg-container::before {
@@ -1027,4 +1045,33 @@ export default {
   CSS for 9x10 board e.g. xiangqi/janggi etc.
 */
 
+</style>
+
+<style scoped>
+.pv-number-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.pv-number-overlay-black {
+  transform: rotate(180deg);
+}
+.pv-move-number {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  font: bold 13px sans-serif;
+  box-shadow: 0 1px 4px #0009;
+}
+.pv-number-yellow { background: #a78000; }
+.pv-number-red { background: #ba3636; }
+.pv-number-green { background: #197745; }
 </style>

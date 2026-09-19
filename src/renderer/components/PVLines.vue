@@ -50,7 +50,11 @@
       :class="[boardStyle, pieceStyle, 'is2d', { koth: variant==='kingofthehill', rk: variant==='racingkings', dim8x8: dimensionNumber===0, dim9x10: dimensionNumber===3, dim9x9: dimensionNumber===1 }]"
       :style="{ top: `${previewTop}px`, left: `${previewLeft}px` }"
     >
-      <div class="cg-board-wrap">
+      <div
+        class="cg-board-wrap"
+        :class="{ rotate180: orientation === 'black' }"
+        :style="previewSize"
+      >
         <div ref="previewBoard" />
       </div>
     </div>
@@ -58,7 +62,7 @@
       <span class="pv-best">● 첫 수</span>
       <span class="pv-reply">● 상대 응수</span>
       <span class="pv-follow">● 후속 수</span>
-      · 최대 6수 · 굵은 화살표부터 · 한수쉼은 원으로 표시
+      · 최대 6수 · 번호 순서대로 · 한수쉼은 원으로 표시
     </div>
     <footer class="footer">
       <div
@@ -142,6 +146,10 @@ export default {
       }
       return null
     },
+    previewSize () {
+      // Use the same cell aspect ratio as the main board, especially 9 x 10 Janggi.
+      return { width: '180px', height: this.dimensionNumber === 3 ? '200px' : '180px' }
+    },
     hasPreviewLine () {
       return this.previewLineId !== null && !!this.lines[this.previewLineId]
     },
@@ -205,6 +213,10 @@ export default {
         if (this.previewBoard) this.previewBoard.destroy()
         this.previewBoard = markRaw(Chessground(el, {
           coordinates: false,
+          draggable: { enabled: false },
+          selectable: { enabled: false },
+          animation: { enabled: false },
+          variant: this.variant,
           fen: this.previewFen || this.fen,
           orientation: this.orientation,
           highlight: { lastMove: false, check: false },
@@ -481,9 +493,12 @@ export default {
   filter: drop-shadow(4px 4px 3px black)
 }
 
+.pv-preview .cg-board-wrap {
+  background-size: 100% 100%;
+}
 .pv-preview .cg-wrap {
-  width: 160px;
-  height: 160px;
+  width: 100%;
+  height: 100%;
 }
 
 .scroller {

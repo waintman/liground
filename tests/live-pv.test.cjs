@@ -11,7 +11,7 @@ function load (file, globals = {}) {
   vm.runInNewContext(code, { exports, ...globals })
   return exports
 }
-const { pvShapes } = load('src/renderer/engine/pvShapes.js')
+const { pvShapes, pvLabels } = load('src/renderer/engine/pvShapes.js')
 const shapes = pvShapes('a10a9 i1i2 a9b9 i2i3 b9b10 i3i4 b10c10')
 assert.equal(shapes.length, 6)
 assert.equal(shapes[5].orig, 'a:')
@@ -26,6 +26,19 @@ assert.equal(pvShapes('a10a9 bad')[0].dest, 'a9')
 assert.equal(pvShapes('bad').length, 0)
 assert.equal(pvShapes(undefined).length, 0)
 assert.equal(pvShapes('a10a9 i1i2 a9b9', 2).length, 2)
+const labels = pvLabels(shapes, 9, 10, 'white')
+const flipped = pvLabels(shapes, 9, 10, 'black')
+assert.equal(labels.map(label => label.order).join(','), '1,2,3,4,5,6')
+for (let i = 0; i < labels.length; i++) {
+  assert(Math.abs(labels[i].x + flipped[i].x - 100) < 0.001)
+  assert(Math.abs(labels[i].y + flipped[i].y - 100) < 0.001)
+}
+const repeats = pvLabels(pvShapes('e2e2 e2e2 e2e2'), 9, 10, 'white')
+assert.equal(new Set(repeats.map(label => `${label.x},${label.y}`)).size, 3)
+assert.equal(pvLabels([], 9, 10, 'white').length, 0)
+const corner = pvLabels(pvShapes('i1i1 i1i1 i1i1 i1i1 i1i1 i1i1'), 9, 10, 'white')
+assert.equal(new Set(corner.map(label => `${label.x},${label.y}`)).size, 6)
+assert(corner.every(label => label.x > 0 && label.x < 100 && label.y > 0 && label.y < 100))
 let flush
 const messages = []
 const { default: Sender } = load('src/renderer/engine/sender.js', {
